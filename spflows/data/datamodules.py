@@ -35,6 +35,7 @@ from gluonts.itertools import maybe_len
 from gluonts.transform import SelectFields
 from pts.dataset.loader import TransformedIterableDataset
 from gluonts.torch.model.predictor import PyTorchPredictor
+from gluonts.dataset.common import  Dataset as GluonDataset
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 
 from typing import NamedTuple
@@ -50,6 +51,7 @@ class ForecastingDataModule(pl.LightningDataModule):
 
     training_iter_dataset:TransformedIterableDataset
     validation_iter_dataset:TransformedIterableDataset
+    test_data:GluonDataset
 
     def __init__(
             self,
@@ -71,7 +73,14 @@ class ForecastingDataModule(pl.LightningDataModule):
         ]
         self.dataset = self.config.dataset
         self.batch_size = config.batch_size
-        self.setup_datasets()
+        
+        # Do not call setup here; let Lightning manage it.
+        self.target_dim = None
+        self.covariance_dim = None
+        self.prediction_length = None
+        self.input_size = None
+        self.training_data = None
+        self.validation_data = None
 
     def update_config(self,config:ForecastingModelConfig):
         config.prediction_length = self.prediction_length
@@ -83,13 +92,13 @@ class ForecastingDataModule(pl.LightningDataModule):
         config.covariance_dim = self.covariance_dim
         config.input_size = self.input_size
         return config
-    
-    def get_data(self)->List[Dict[str,np.array]]:
-        """downloads data and sets the grouper for multivariates"""
-        # Load data
+        
+    def prepare_data(self):
+        """Download and validate data."""
+        # Load and validate data
         dataset = get_dataset(self.dataset, regenerate=False)
 
-        # update and set values from dataset
+        # Store metadata and attributes for later use
         self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
         self.prediction_length = dataset.metadata.prediction_length
         self.config.prediction_length = dataset.metadata.prediction_length
@@ -97,22 +106,23 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.config.target_dim = self.target_dim
         self.input_size = self.target_dim * 4 + self.covariance_dim
 
+        # Set the grouped data attributes for later use
         train_grouper = MultivariateGrouper(max_target_dim=min(2000, self.target_dim))
-        test_grouper = MultivariateGrouper(num_test_dates=int(len(dataset.test) / len(dataset.train)), max_target_dim=min(2000, self.target_dim))
+        test_grouper = MultivariateGrouper(
+            num_test_dates=int(len(dataset.test) / len(dataset.train)),
+            max_target_dim=min(2000, self.target_dim),
+        )
+        self.training_data = train_grouper(dataset.train)
+        self.test_data = test_grouper(dataset.test)
 
-        training_data = train_grouper(dataset.train)
-        test_data = test_grouper(dataset.test)
-
+        # Prepare validation data
         val_window = 20 * dataset.metadata.prediction_length
-        training_data = list(training_data)
-        validation_data = []
-        for i in range(len(training_data)):
-            x = deepcopy(training_data[i])
-            x['target'] = x['target'][:,-val_window:]
-            validation_data.append(x)
-            training_data[i]['target'] = training_data[i]['target'][:,:-val_window]    
-        return training_data,test_data,validation_data
-    
+        self.validation_data = [
+            {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in self.training_data
+        ]
+        for item in self.training_data:
+            item["target"] = item["target"][:, :-val_window]
+
     def setup_time_features(self):
         """
         Here we define how we are going to select the different prediction seq2seq elements
@@ -149,33 +159,32 @@ class ForecastingDataModule(pl.LightningDataModule):
             min_future=self.prediction_length,
         )
     
-    def setup_datasets(self):
+    def setup(self):
         """set features, transformations, get data, set datasets"""
-        training_data,test_data,validation_data = self.get_data()
         self.setup_time_features()
         self.setup_transformations()
 
-        training_lenght = maybe_len(training_data)
+        training_lenght = maybe_len(self.training_data)
         with env._let(max_idle_transforms=training_lenght or 0):
             training_instance_splitter = self.create_instance_splitter("training")
         training_transforms = self.transformations + training_instance_splitter + SelectFields(self.input_names)
 
         self.training_iter_dataset = TransformedIterableDataset(
-            dataset=training_data,
+            dataset=self.training_data,
             transform=training_transforms,
             is_train=True,
             shuffle_buffer_length=self.config.shuffle_buffer_length,
             cache_data=self.config.cache_data,
         )
 
-        if validation_data is not None:
-            validation_lenght = maybe_len(validation_data)
+        if self.validation_data is not None:
+            validation_lenght = maybe_len(self.validation_data)
             with env._let(max_idle_transforms=validation_lenght or 0):
                 validation_instance_splitter = self.create_instance_splitter("validation")
             val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.input_names)
 
             self.validation_iter_dataset = TransformedIterableDataset(
-                dataset=validation_data,
+                dataset=self.validation_data,
                 transform=val_transforms,
                 is_train=True,
                 cache_data=self.config.cache_data,
@@ -279,3 +288,33 @@ class ForecastingDataModule(pl.LightningDataModule):
     
     def get_train_databatch(self):
         return next(self.train_dataloader().__iter__())
+    
+"""
+def get_data(self)->List[Dict[str,np.array]]:
+    # Load data
+    dataset = get_dataset(self.dataset, regenerate=False)
+
+    # update and set values from dataset
+    self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
+    self.prediction_length = dataset.metadata.prediction_length
+    self.config.prediction_length = dataset.metadata.prediction_length
+    self.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
+    self.config.target_dim = self.target_dim
+    self.input_size = self.target_dim * 4 + self.covariance_dim
+
+    train_grouper = MultivariateGrouper(max_target_dim=min(2000, self.target_dim))
+    test_grouper = MultivariateGrouper(num_test_dates=int(len(dataset.test) / len(dataset.train)), max_target_dim=min(2000, self.target_dim))
+
+    training_data = train_grouper(dataset.train)
+    self.test_data = test_grouper(dataset.test)
+
+    val_window = 20 * dataset.metadata.prediction_length
+    training_data = list(training_data)
+    validation_data = []
+    for i in range(len(training_data)):
+        x = deepcopy(training_data[i])
+        x['target'] = x['target'][:,-val_window:]
+        validation_data.append(x)
+        training_data[i]['target'] = training_data[i]['target'][:,:-val_window]    
+    return training_data,self.test_data,validation_data
+"""

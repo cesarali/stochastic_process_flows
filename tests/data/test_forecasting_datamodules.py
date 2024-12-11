@@ -8,7 +8,16 @@ def test_dataloader():
 
     config = ForecastingModelConfig()
     datamodule = ForecastingDataModule(config)
-    assert datamodule is not None
+    # Explicitly call prepare_data() and setup()
+    datamodule.prepare_data()
+    datamodule.setup()
+    config = datamodule.update_config(config)
+    # Test the get_train_databatch function
+    databatch = datamodule.get_train_databatch()
+    # Assertions for sanity checks
+    assert databatch is not None, "Data batch should not be None"
+    assert len(databatch) > 0, "Data batch should contain elements"
+
 
 if __name__=="__main__":
     test_dataloader()

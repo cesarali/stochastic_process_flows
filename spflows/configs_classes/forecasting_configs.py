@@ -3,6 +3,9 @@ from typing import List, Optional, Any
 
 @dataclass
 class ForecastingModelConfig:
+    
+    experiment_dir:str = None
+    experiment_name:str = None
 
     # Data configuration
     dataset: str = "electricity_nips"
@@ -29,10 +32,10 @@ class ForecastingModelConfig:
 
     # Training configuration
     epochs: int = 100
-    num_batches_per_epoch: int = 50
+    num_batches_per_epoch: int = 10
     learning_rate: float = 1e-3
     seed: int = 1
-
+    patience:Optional[int] = None
     #Denoising Models
     noise: str = "gp"
     diffusion_steps:int = 100

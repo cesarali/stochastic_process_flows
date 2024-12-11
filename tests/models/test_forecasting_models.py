@@ -9,15 +9,14 @@ def test_forward():
 
     config = ForecastingModelConfig()
     datamodule = ForecastingDataModule(config)
+    datamodule.prepare_data()
+    datamodule.setup()
     config = datamodule.update_config(config)
     databatch = datamodule.get_train_databatch()
     module = ScoreModule(config)
     inputs = [v for v in databatch.values()]
     loss = module.train_dynamical_module(*inputs)
-
-    print(loss)
-
-
+    assert loss is not None
 
 if __name__=="__main__":
     test_forward()

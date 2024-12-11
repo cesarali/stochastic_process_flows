@@ -1,4 +1,3 @@
-from pytorch_lightning import LightningModule
 from torch.optim import Adam
 from torch.optim.lr_scheduler import OneCycleLR
 from copy import deepcopy
@@ -16,8 +15,9 @@ from spflows.models.forecasting import (
     TimeGradTrainingNetwork_CNN, TimeGradPredictionNetwork_CNN,
 )
 from spflows.utils import NotSupportedModelNoiseCombination
+import lightning.pytorch as pl
 
-class ScoreModule(LightningModule):
+class ScoreModule(pl.LightningModule):
     """
     """
     train_dynamical_module:nn.Module
@@ -36,7 +36,7 @@ class ScoreModule(LightningModule):
         self.learning_rate = config.learning_rate
         self.weight_decay = config.weight_decay
         self.maximum_learning_rate = config.maximum_learning_rate
-        
+        self.patience = config.patience
         # Additional attributes for training state
         self.best_loss = float("inf")
         self.waiting = 0
@@ -72,8 +72,7 @@ class ScoreModule(LightningModule):
         self.prediction_dynamic_class = prediction_dynamic_class
     
     def create_training_network(self):
-        """initilizes the dynamical model"""
-                
+        """initilizes the dynamical model"""          
         return self.train_dynamic_class(
             noise=self.config.noise,
             input_size=self.config.input_size,
@@ -100,6 +99,9 @@ class ScoreModule(LightningModule):
             time_feat_dim=self.config.time_feat_dim,
         )
 
+    def create_predictor_network(self):
+        return self.train_dynamical_module
+    
     # ------------------------------ LITHNING IMPLEMENTATION -------------------------------------
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
@@ -112,21 +114,21 @@ class ScoreModule(LightningModule):
         return [optimizer], [lr_scheduler]
 
     def training_step(self, batch, batch_idx):
-        inputs = [v.to(self.device) for v in batch.values()]
-        loss = self(*inputs)
+        inputs = [v for v in batch.values()]
+        loss = self.train_dynamical_module(*inputs)
         if isinstance(loss, (list, tuple)):
             loss = loss[0]
 
         # Gradient clipping
-        if self.clip_gradient is not None:
-            clip_grad_norm_(self.parameters(), self.clip_gradient)
+        #if self.clip_gradient is not None:
+        #    clip_grad_norm_(self.parameters(), self.clip_gradient)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs = [v.to(self.device) for v in batch.values()]
+        inputs = [v for v in batch.values()]
         with torch.no_grad():
-            output = self(*inputs)
+            output = self.train_dynamical_module(*inputs)
         loss = output[0] if isinstance(output, (list, tuple)) else output
         self.log("val_loss", loss, prog_bar=True)
         return loss

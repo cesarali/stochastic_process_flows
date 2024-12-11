@@ -110,7 +110,7 @@ def train(
             device=device,
             epochs=epochs,
             learning_rate=learning_rate,
-            num_batches_per_epoch=100,
+            num_batches_per_epoch=4,
             batch_size=batch_size,
             patience=10,
         ),
@@ -142,7 +142,6 @@ def train(
         energy_score=score,
     )
     metrics = { k: float(v) for k,v in metrics.items() }
-
     return metrics
 
 
@@ -155,7 +154,7 @@ if __name__ == '__main__':
     ])
     parser.add_argument('--noise', type=str, choices=['normal', 'ou', 'gp'],default="gp")
     parser.add_argument('--diffusion_steps', type=int, default=100)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--learning_rate', type=int, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_cells', type=int, default=100)
