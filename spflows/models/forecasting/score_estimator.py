@@ -118,7 +118,7 @@ class ScoreEstimator(PyTorchEstimator):
         self.scaling = scaling
 
         self.train_sampler = ExpectedNumInstanceSampler(
-            num_instances=1.0,
+            num_instances=10.0,
             min_past=0 if pick_incomplete else self.history_length,
             min_future=prediction_length,
         )

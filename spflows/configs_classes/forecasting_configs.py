@@ -8,12 +8,17 @@ class ForecastingModelConfig:
     dataset: str = "electricity_nips"
     freq: str = "H"  
     prediction_length: int = 24 
-    context_length: Optional[int] = None
+    context_length: Optional[int] = None # updated at datamodule
+    history_length: Optional[int] = None # updated at datamodule
+    lags_seq: Optional[List[int]] = None # updated at datamodule 
+    time_features: Optional[List[Any]] = None # updated at datamodule
+    covariance_dim: int = 1 # updated at datamodule
+    input_size: int = 1  # Replace with actual input size
+    target_dim: int = 1  # Replace with actual target dimension
+
     batch_size: int = 64
-    
     pick_incomplete: bool = True
-    lags_seq: Optional[List[int]] = None
-    time_features: Optional[List[Any]] = None
+
     scaling: bool = True
     shuffle_buffer_length: Optional[int] = None
     cache_data: bool = False
@@ -38,8 +43,6 @@ class ForecastingModelConfig:
 
     # Model architecture
     network: str = "timegrad_rnn"
-    input_size: int = 1  # Replace with actual input size
-    target_dim: int = 1  # Replace with actual target dimension
     num_layers: int = 2
     num_cells: int = 100
     cell_type: str = "GRU"
@@ -57,3 +60,4 @@ class ForecastingModelConfig:
     time_feat_dim: int = 4
 
     extra_args: dict = field(default_factory=dict)
+

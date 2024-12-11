@@ -1,4 +1,3 @@
-from typing import Any
 from pytorch_lightning import LightningModule
 from torch.optim import Adam
 from torch.optim.lr_scheduler import OneCycleLR
@@ -6,12 +5,9 @@ from copy import deepcopy
 from torch.nn.utils import clip_grad_norm_
 import torch
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
-from gluonts.torch.model.predictor import PyTorchPredictor
-from gluonts.torch.util import copy_parameters
-from gluonts.model.predictor import Predictor
+from torch import nn
 
-from spflows.models.forecasting.models import (
-    ScoreEstimator,
+from spflows.models.forecasting import (
     TimeGradTrainingNetwork_AutoregressiveOld, TimeGradPredictionNetwork_AutoregressiveOld,
     TimeGradTrainingNetwork_Autoregressive, TimeGradPredictionNetwork_Autoregressive,
     TimeGradTrainingNetwork_All, TimeGradPredictionNetwork_All,
@@ -21,16 +17,17 @@ from spflows.models.forecasting.models import (
 )
 from spflows.utils import NotSupportedModelNoiseCombination
 
-from gluonts.transform import Transformation
-
 class ScoreModule(LightningModule):
     """
     """
-    def init(
+    train_dynamical_module:nn.Module
+
+    def __init__(
         self,
         config:ForecastingModelConfig,
     ):
-        super().init()
+        super(ScoreModule,self).__init__()
+
         self.config = config  # Store the config for potential future reference
         self.epochs = config.epochs
         self.network = config.network
@@ -39,7 +36,6 @@ class ScoreModule(LightningModule):
         self.learning_rate = config.learning_rate
         self.weight_decay = config.weight_decay
         self.maximum_learning_rate = config.maximum_learning_rate
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Additional attributes for training state
         self.best_loss = float("inf")
@@ -48,41 +44,44 @@ class ScoreModule(LightningModule):
 
         # Initialize other model-specific components as needed
         self.set_networks_class()
-        self.trained_net =  self.create_training_network()
+        self.train_dynamical_module =  self.create_training_network()
 
     def set_networks_class(self):
-        network  = self.config.noise
+        """defines the network class to be initialized"""
+        network  = self.config.network
         noise = self.config.noise
         # Load model
         if network == 'timegrad':
             if noise != 'normal':
                 raise NotSupportedModelNoiseCombination
-            training_net, prediction_net = TimeGradTrainingNetwork_Autoregressive, TimeGradPredictionNetwork_Autoregressive
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_Autoregressive, TimeGradPredictionNetwork_Autoregressive
         elif network == 'timegrad_old':
             if noise != 'normal':
                 raise NotSupportedModelNoiseCombination
-            training_net, prediction_net = TimeGradTrainingNetwork_AutoregressiveOld, TimeGradPredictionNetwork_AutoregressiveOld
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_AutoregressiveOld, TimeGradPredictionNetwork_AutoregressiveOld
         elif network == 'timegrad_all':
-            training_net, prediction_net = TimeGradTrainingNetwork_All, TimeGradPredictionNetwork_All
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_All, TimeGradPredictionNetwork_All
         elif network == 'timegrad_rnn':
-            training_net, prediction_net = TimeGradTrainingNetwork_RNN, TimeGradPredictionNetwork_RNN
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_RNN, TimeGradPredictionNetwork_RNN
         elif network == 'timegrad_transformer':
-            training_net, prediction_net = TimeGradTrainingNetwork_Transformer, TimeGradPredictionNetwork_Transformer
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_Transformer, TimeGradPredictionNetwork_Transformer
         elif network == 'timegrad_cnn':
-            training_net, prediction_net = TimeGradTrainingNetwork_CNN, TimeGradPredictionNetwork_CNN
+            train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_CNN, TimeGradPredictionNetwork_CNN
         
-        self.training_net = training_net
-        self.prediction_net = prediction_net
+        self.train_dynamic_class = train_dynamic_class
+        self.prediction_dynamic_class = prediction_dynamic_class
     
     def create_training_network(self):
-        return self.training_net(
+        """initilizes the dynamical model"""
+                
+        return self.train_dynamic_class(
             noise=self.config.noise,
             input_size=self.config.input_size,
             target_dim=self.config.target_dim,
             num_layers=self.config.num_layers,
             num_cells=self.config.num_cells,
             cell_type=self.config.cell_type,
-            history_length=self.config.context_length,
+            history_length=self.config.history_length,
             context_length=self.config.context_length,
             prediction_length=self.config.prediction_length,
             dropout_rate=self.config.dropout_rate,

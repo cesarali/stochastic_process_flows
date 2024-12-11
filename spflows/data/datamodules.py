@@ -69,22 +69,36 @@ class ForecastingDataModule(pl.LightningDataModule):
             "future_target_cdf",
             "future_observed_values"
         ]
-
         self.dataset = self.config.dataset
         self.batch_size = config.batch_size
         self.setup_datasets()
 
+    def update_config(self,config:ForecastingModelConfig):
+        config.prediction_length = self.prediction_length
+        config.context_length = self.context_length
+        config.lags_seq = self.lags_seq
+        config.time_features = self.time_features
+        config.history_length = self.history_length
+        config.target_dim = self.target_dim
+        config.covariance_dim = self.covariance_dim
+        config.input_size = self.input_size
+        return config
+    
     def get_data(self)->List[Dict[str,np.array]]:
         """downloads data and sets the grouper for multivariates"""
-        self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
         # Load data
         dataset = get_dataset(self.dataset, regenerate=False)
-        self.config.prediction_length = dataset.metadata.prediction_length
-    
-        target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
 
-        train_grouper = MultivariateGrouper(max_target_dim=min(2000, target_dim))
-        test_grouper = MultivariateGrouper(num_test_dates=int(len(dataset.test) / len(dataset.train)), max_target_dim=min(2000, target_dim))
+        # update and set values from dataset
+        self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
+        self.prediction_length = dataset.metadata.prediction_length
+        self.config.prediction_length = dataset.metadata.prediction_length
+        self.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
+        self.config.target_dim = self.target_dim
+        self.input_size = self.target_dim * 4 + self.covariance_dim
+
+        train_grouper = MultivariateGrouper(max_target_dim=min(2000, self.target_dim))
+        test_grouper = MultivariateGrouper(num_test_dates=int(len(dataset.test) / len(dataset.train)), max_target_dim=min(2000, self.target_dim))
 
         training_data = train_grouper(dataset.train)
         test_data = test_grouper(dataset.test)
@@ -119,6 +133,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.context_length = self.config.context_length if self.config.context_length is not None else self.prediction_length
         self.history_length = self.context_length + max(self.lags_seq)
         self.pick_incomplete = self.config.pick_incomplete
+        self.input_dim =  self.target_dim * 4 + self.covariance_dim
         self.scaling = self.config.scaling
 
         # the random selection of points along the path
@@ -126,12 +141,12 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.train_sampler = ExpectedNumInstanceSampler(
             num_instances=10.0,
             min_past=0 if self.config.pick_incomplete else self.history_length,
-            min_future=self.config.prediction_length,
+            min_future=self.prediction_length,
         )
 
         self.validation_sampler = ValidationSplitSampler(
             min_past=0 if self.config.pick_incomplete else self.history_length,
-            min_future=self.config.prediction_length,
+            min_future=self.prediction_length,
         )
     
     def setup_datasets(self):
@@ -261,3 +276,6 @@ class ForecastingDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         pass
+    
+    def get_train_databatch(self):
+        return next(self.train_dataloader().__iter__())

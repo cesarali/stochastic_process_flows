@@ -10,7 +10,7 @@ import torch.distributions as td
 from torchsde import sdeint
 from torchdiffeq import odeint
 
-from spflows.diffusion.noise import Normal, OrnsteinUhlenbeck, GaussianProcess
+from spflows.models.diffusion.noise import Normal, OrnsteinUhlenbeck, GaussianProcess
 
 
 class ContinuousDiffusion(nn.Module):
