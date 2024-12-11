@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List
 from dataclasses import dataclass
 from torch.utils.data import DataLoader, TensorDataset,random_split
-from spflows.forecasting.models.crypto.prediction.configuration_classes.prediction_classes import SummaryPredictionConfig
+from spflows.models.crypto.prediction.configuration_classes.prediction_classes import SummaryPredictionConfig
 
 @dataclass
 class TimeSeriesTorchForTraining:

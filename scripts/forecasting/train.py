@@ -8,7 +8,7 @@ from gluonts.dataset.repository.datasets import get_dataset
 from gluonts.evaluation.backtest import make_evaluation_predictions
 from gluonts.evaluation import MultivariateEvaluator
 
-from spflows.forecasting.models import (
+from spflows.models.forecasting import (
     ScoreEstimator,
     TimeGradTrainingNetwork_AutoregressiveOld, TimeGradPredictionNetwork_AutoregressiveOld,
     TimeGradTrainingNetwork_Autoregressive, TimeGradPredictionNetwork_Autoregressive,

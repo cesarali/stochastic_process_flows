@@ -7,6 +7,7 @@ from gluonts.time_feature import TimeFeature
 from gluonts.torch.model.predictor import PyTorchPredictor
 from gluonts.torch.util import copy_parameters
 from gluonts.model.predictor import Predictor
+
 from gluonts.transform import (
     Transformation,
     Chain,
@@ -23,16 +24,15 @@ from gluonts.transform import (
     SetFieldIfNotPresent,
     TargetDimIndicator,
 )
-from gluonts.core.component import validated
 
 from pts.feature import (
     fourier_time_features_from_frequency,
     lags_for_fourier_time_features_from_frequency,
 )
-from pts.model import PyTorchEstimator
-from pts.model.utils import get_module_forward_input_names
 
+from pts.model import PyTorchEstimator
 from spflows.utils import TrainerForecasting
+from pts.model.utils import get_module_forward_input_names
 
 class ScoreEstimator(PyTorchEstimator):
     def __init__(

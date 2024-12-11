@@ -1,3 +1,4 @@
+from torch.utils.data import DataLoader
 from copy import deepcopy
 import pytorch_lightning as pl
 
@@ -30,27 +31,19 @@ from pts.feature import (
 )
 
 from gluonts.env import env
-from gluonts.dataset.common import Dataset
-from gluonts.transform import SelectFields
 from gluonts.itertools import maybe_len
-
+from gluonts.transform import SelectFields
 from pts.dataset.loader import TransformedIterableDataset
+from gluonts.torch.model.predictor import PyTorchPredictor
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 
-class TimeSeriesDataset(Dataset):
-    def __init__(self, data, context_length, prediction_length):
-        self.data = data
-        self.context_length = context_length
-        self.prediction_length = prediction_length
+from typing import NamedTuple
+from torch import nn
 
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        series = self.data[idx]
-        context = series[:self.context_length]
-        prediction = series[self.context_length:self.context_length + self.prediction_length]
-        return {"context": context, "prediction": prediction}
+class TrainOutput(NamedTuple):
+    transformation: Transformation
+    trained_net: nn.Module
+    predictor: PyTorchPredictor
 
 class ForecastingDataModule(pl.LightningDataModule):
     """Datamodule to train an stochastic process diffusion module"""
@@ -79,8 +72,6 @@ class ForecastingDataModule(pl.LightningDataModule):
 
         self.dataset = self.config.dataset
         self.batch_size = config.batch_size
-        self.context_length = config.context_length
-        self.prediction_length = config.prediction_length
         self.setup_datasets()
 
     def get_data(self)->List[Dict[str,np.array]]:
@@ -88,12 +79,8 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
         # Load data
         dataset = get_dataset(self.dataset, regenerate=False)
-        self.prediction_length=dataset.metadata.prediction_length
-        self.context_length=dataset.metadata.prediction_length
-
-        self.config.prediction_length = self.prediction_length
-        self.config.context_length = self.context_length
-
+        self.config.prediction_length = dataset.metadata.prediction_length
+    
         target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
 
         train_grouper = MultivariateGrouper(max_target_dim=min(2000, target_dim))
@@ -113,6 +100,9 @@ class ForecastingDataModule(pl.LightningDataModule):
         return training_data,test_data,validation_data
     
     def setup_time_features(self):
+        """
+        Here we define how we are going to select the different prediction seq2seq elements
+        """
         self.lags_seq = (
             self.config.lags_seq
             if self.config.lags_seq is not None
@@ -125,12 +115,16 @@ class ForecastingDataModule(pl.LightningDataModule):
             else fourier_time_features_from_frequency(self.config.freq)
         )
 
+        self.prediction_length = self.config.prediction_length
+        self.context_length = self.config.context_length if self.config.context_length is not None else self.prediction_length
         self.history_length = self.context_length + max(self.lags_seq)
         self.pick_incomplete = self.config.pick_incomplete
         self.scaling = self.config.scaling
 
+        # the random selection of points along the path
+        # to take the seq2seq segments
         self.train_sampler = ExpectedNumInstanceSampler(
-            num_instances=1.0,
+            num_instances=10.0,
             min_past=0 if self.config.pick_incomplete else self.history_length,
             min_future=self.config.prediction_length,
         )
@@ -146,9 +140,10 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.setup_time_features()
         self.setup_transformations()
 
-        with env._let(max_idle_transforms=maybe_len(training_data) or 0):
-            validation_instance_splitter = self.create_instance_splitter("validation")
-        training_transforms = self.transformations + validation_instance_splitter + SelectFields(self.input_names)
+        training_lenght = maybe_len(training_data)
+        with env._let(max_idle_transforms=training_lenght or 0):
+            training_instance_splitter = self.create_instance_splitter("training")
+        training_transforms = self.transformations + training_instance_splitter + SelectFields(self.input_names)
 
         self.training_iter_dataset = TransformedIterableDataset(
             dataset=training_data,
@@ -159,7 +154,8 @@ class ForecastingDataModule(pl.LightningDataModule):
         )
 
         if validation_data is not None:
-            with env._let(max_idle_transforms=maybe_len(validation_data) or 0):
+            validation_lenght = maybe_len(validation_data)
+            with env._let(max_idle_transforms=validation_lenght or 0):
                 validation_instance_splitter = self.create_instance_splitter("validation")
             val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.input_names)
 
@@ -237,11 +233,31 @@ class ForecastingDataModule(pl.LightningDataModule):
             )
         )
     
+    @staticmethod
+    def _worker_init_fn(worker_id):
+        np.random.seed(np.random.get_state()[1][0] + worker_id)
+
     def train_dataloader(self):
-        pass
+        training_data_loader = DataLoader(
+            self.training_iter_dataset,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.num_workers,
+            prefetch_factor=self.config.prefetch_factor,
+            pin_memory=True,
+            worker_init_fn=self._worker_init_fn
+        )
+        return training_data_loader
 
     def val_dataloader(self):
-        pass
+        validation_data_loader = DataLoader(
+            self.validation_iter_dataset,
+            batch_size=self.config.batch_size,
+            num_workers=self.config.num_workers,
+            prefetch_factor=self.config.prefetch_factor,
+            pin_memory=True,
+            worker_init_fn=self._worker_init_fn,
+        )
+        return validation_data_loader
 
     def test_dataloader(self):
         pass

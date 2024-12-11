@@ -6,19 +6,25 @@ class ForecastingModelConfig:
 
     # Data configuration
     dataset: str = "electricity_nips"
-    freq: str = "H"  # Replace with actual frequency
-    prediction_length: int = 24  # Replace with actual prediction length
+    freq: str = "H"  
+    prediction_length: int = 24 
     context_length: Optional[int] = None
     batch_size: int = 64
+    
     pick_incomplete: bool = True
     lags_seq: Optional[List[int]] = None
     time_features: Optional[List[Any]] = None
     scaling: bool = True
     shuffle_buffer_length: Optional[int] = None
     cache_data: bool = False
+    weight_decay: float = 1e-6
+    maximum_learning_rate: float = 1e-2
+    num_workers: int = 2
+    prefetch_factor: int = 3
 
     # Training configuration
     epochs: int = 100
+    num_batches_per_epoch: int = 50
     learning_rate: float = 1e-3
     seed: int = 1
 

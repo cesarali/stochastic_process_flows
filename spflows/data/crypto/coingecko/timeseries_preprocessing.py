@@ -428,18 +428,19 @@ def get_timeseries_as_torch(timeseries_and_metadata:Dict[str,CoinTimeseriesMetad
     return tsdt
 
 if __name__=="__main__":
-    coingecko_key = "CG-rkg4RTUcfEWYAQ4xUejxPpkS"
+    #coingecko_key = "CG-rkg4RTUcfEWYAQ4xUejxPpkS"
+    coingecko_key = "CG-v3j5ob13whoN4a8AzYDJXDht"
     date_string="2024-12-10"
-
+    number_of_coins_to_download = 10
     selected_coins = get_coins_to_download(date_string=date_string,
                                            key=coingecko_key,
-                                           number_of_coins_to_download=10,
+                                           number_of_coins_to_download=number_of_coins_to_download,
                                            percentage_on_top = .1,
                                            number_of_pages=8,
                                            redo=False)
     all_coins_metadata = AllCoinsMetadata(date_string=date_string,
                                           coingecko_key=coingecko_key)
-    some_coins_to_download = selected_coins[:]
+    some_coins_to_download = selected_coins[:number_of_coins_to_download]
     all_coins_metadata.download_coins_metadata(coins_to_download=some_coins_to_download)
     all_coins_metadata.download_df_timeseries()
 
