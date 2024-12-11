@@ -9,7 +9,7 @@ from pts.model import weighted_average
 from pts.model.time_grad import TimeGradTrainingNetwork, TimeGradPredictionNetwork
 from pts.model.time_grad.epsilon_theta import DiffusionEmbedding
 
-from spflows.diffusion import GaussianDiffusion, OUDiffusion, GPDiffusion, BetaLinear
+from spflows.models.diffusion import GaussianDiffusion, OUDiffusion, GPDiffusion, BetaLinear
 from spflows.utils import dotdict, EpsilonTheta
 
 

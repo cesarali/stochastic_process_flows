@@ -17,7 +17,7 @@ from tqdm import tqdm
 from spflows import project_path
 from spflows.utils.weird_functions import positive_parameter
 
-from spflows.forecasting.models.abstract_models import DeepBayesianModel
+from spflows.models.abstract_models import DeepBayesianModel
 from spflows.forecasting.models.deep_architectures.tcn import TemporalConvNet
 import torch.optim.swa_utils as swa_utils
 

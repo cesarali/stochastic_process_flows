@@ -7,7 +7,7 @@ from typing import Dict, Union
 
 import numpy as np
 import torch
-from spflows.forecasting.models.basic_utils import set_cuda, all_metrics_to_floats, dict_mean
+from spflows.models.basic_utils import set_cuda, all_metrics_to_floats, dict_mean
 from torch.optim import SGD, Adam, AdamW
 from torch.optim.adadelta import Adadelta
 from torch.optim.adagrad import Adagrad

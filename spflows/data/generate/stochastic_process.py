@@ -41,7 +41,6 @@ def generate_OU(N=10_000, mu=0.02, theta=0.1, sigma=0.4, regular=True):
     else:
         np.savez(DATA_DIR / 'ou_irregular.npz', t=t.numpy(), x=x.numpy())
 
-
 def generate_CIR(N=10_000, a=1, b=1.2, sigma=0.2, regular=True):
     class CIR(nn.Module):
         """ Cox-Ingersoll-Ross """
@@ -74,7 +73,6 @@ def generate_CIR(N=10_000, a=1, b=1.2, sigma=0.2, regular=True):
     else:
         np.savez(DATA_DIR / 'cir_irregular.npz', t=t.numpy(), x=x.numpy())
 
-
 def generate_lorenz(N=10_000, rho=28, sigma=10, beta=2.667, regular=True):
     class Lorenz(nn.Module):
         def __init__(self, rho, sigma, beta):
@@ -104,7 +102,6 @@ def generate_lorenz(N=10_000, rho=28, sigma=10, beta=2.667, regular=True):
     else:
         np.savez(DATA_DIR / 'lorenz_irregular.npz', t=t.numpy(), x=x.numpy())
 
-
 def generate_sine(N=10_000, regular=True):
     a = torch.rand(N, 1, 5) + 3
     b = torch.rand(N, 1, 5) * 0.5
@@ -117,7 +114,6 @@ def generate_sine(N=10_000, regular=True):
         np.savez(DATA_DIR / 'sine.npz', t=t.numpy(), x=x.numpy())
     else:
         np.savez(DATA_DIR / 'sine_irregular.npz', t=t.numpy(), x=x.numpy())
-
 
 def generate_predator_prey(N=10_000, regular=True):
     class PredatorPrey(nn.Module):
@@ -162,7 +158,6 @@ def generate_sink(N=10_000, regular=True):
         np.savez(DATA_DIR / 'sink.npz', t=t.numpy(), x=x.numpy())
     else:
         np.savez(DATA_DIR / 'sink_irregular.npz', t=t.numpy(), x=x.numpy())
-
 
 if __name__ == '__main__':
     generate_OU()

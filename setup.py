@@ -14,7 +14,8 @@ install_requires = [
     'torchtyping==0.1.5',
     'pandas==1.5.3',
     'optuna==4.1.0',
-    'torchcde==0.2.5'
+    'torchcde==0.2.5',
+    'orjson==3.10.12'
 ]
 
 with open('README.md', 'r') as f:
