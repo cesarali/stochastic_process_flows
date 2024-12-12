@@ -1,9 +1,6 @@
 import argparse
-from dataclasses import dataclass, field
-from typing import Optional, List, Any
-
+from spflows.training.basic_experiments import BasicLightningExperiment
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
-from spflows.training.basic import LightningTrainer
 
 def train(args):
     # Update dataclass with parsed arguments
@@ -18,9 +15,10 @@ def train(args):
         batch_size=args.batch_size,
         num_cells=args.num_cells,
         hidden_dim=args.hidden_dim,
-        residual_layers=args.residual_layers
+        residual_layers=args.residual_layers,
+        num_batches_per_epoch=2,
     )
-    trainer = LightningTrainer(config)
+    trainer = BasicLightningExperiment(config)
     trainer.train()
 
 if __name__=="__main__":
@@ -32,13 +30,13 @@ if __name__=="__main__":
         'timegrad', 'timegrad_old', 'timegrad_all', 'timegrad_rnn', 'timegrad_transformer', 'timegrad_cnn'
     ])
     parser.add_argument('--noise', type=str, choices=['normal', 'ou', 'gp'], default="gp")
-    parser.add_argument('--diffusion_steps', type=int, default=100)
-    parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--diffusion_steps', type=int, default=9)
+    parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--learning_rate', type=int, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--num_cells', type=int, default=100)
-    parser.add_argument('--hidden_dim', type=int, default=100)
-    parser.add_argument('--residual_layers', type=int, default=8)
+    parser.add_argument('--num_cells', type=int, default=10)
+    parser.add_argument('--hidden_dim', type=int, default=10)
+    parser.add_argument('--residual_layers', type=int, default=2)
     args = parser.parse_args()
 
     train(args)

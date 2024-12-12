@@ -60,7 +60,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         ):
         super().__init__()
         self.config = config
-
+        self.save_hyperparameters()
         self.train_input_names,_ = ScoreModule.get_networks_inputs(self.config)
         self.dataset = self.config.dataset
         self.batch_size = config.batch_size
@@ -283,32 +283,20 @@ class ForecastingDataModule(pl.LightningDataModule):
     def get_train_databatch(self):
         return next(self.train_dataloader().__iter__())
     
-"""
-def get_data(self)->List[Dict[str,np.array]]:
-    # Load data
-    dataset = get_dataset(self.dataset, regenerate=False)
+    def send_tensors_to_device(self,databatch, device):
+        """
+        Sends all tensor values in a dictionary or named tuple to the specified device.
 
-    # update and set values from dataset
-    self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
-    self.prediction_length = dataset.metadata.prediction_length
-    self.config.prediction_length = dataset.metadata.prediction_length
-    self.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
-    self.config.target_dim = self.target_dim
-    self.input_size = self.target_dim * 4 + self.covariance_dim
+        Args:
+            data (dict or namedtuple): The input data containing tensors.
+            device (torch.device): The target device to send the tensors to.
 
-    train_grouper = MultivariateGrouper(max_target_dim=min(2000, self.target_dim))
-    test_grouper = MultivariateGrouper(num_test_dates=int(len(dataset.test) / len(dataset.train)), max_target_dim=min(2000, self.target_dim))
-
-    training_data = train_grouper(dataset.train)
-    self.test_data = test_grouper(dataset.test)
-
-    val_window = 20 * dataset.metadata.prediction_length
-    training_data = list(training_data)
-    validation_data = []
-    for i in range(len(training_data)):
-        x = deepcopy(training_data[i])
-        x['target'] = x['target'][:,-val_window:]
-        validation_data.append(x)
-        training_data[i]['target'] = training_data[i]['target'][:,:-val_window]    
-    return training_data,self.test_data,validation_data
-"""
+        Returns:
+            dict: A new dictionary with tensors moved to the specified device.
+        """
+        if isinstance(databatch, dict):
+            return {key: value.to(device) for key, value in databatch.items()}
+        elif hasattr(databatch, '_fields'):  # Check if it's a namedtuple
+            return type(databatch)(*(value.to(device) if hasattr(value, 'to') else value for value in databatch))
+        else:
+            raise TypeError("Input data must be a dictionary or namedtuple.")

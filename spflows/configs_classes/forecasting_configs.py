@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Any
+import yaml
 
 @dataclass
 class ForecastingModelConfig:
     
     experiment_dir:str = None
-    experiment_name:str = None
+    experiment_name:str = "forecasting"
 
     # Data configuration
     dataset: str = "electricity_nips"
@@ -20,7 +21,6 @@ class ForecastingModelConfig:
     covariance_dim: int = 1 # updated at datamodule
     input_size: int = 1  # Replace with actual input size
     target_dim: int = 1  # Replace with actual target dimension
-
 
     batch_size: int = 64
     pick_incomplete: bool = True
@@ -38,7 +38,7 @@ class ForecastingModelConfig:
     num_batches_per_epoch: int = 10
     learning_rate: float = 1e-3
     seed: int = 1
-    patience:Optional[int] = None
+    patience:Optional[int] = 10
     #Denoising Models
     noise: str = "gp"
     diffusion_steps:int = 100
@@ -66,3 +66,8 @@ class ForecastingModelConfig:
 
     extra_args: dict = field(default_factory=dict)
 
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> 'ForecastingModelConfig':
+        with open(yaml_path, 'r') as file:
+            params_dict = yaml.safe_load(file)
+        return cls(**params_dict)

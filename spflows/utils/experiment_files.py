@@ -41,7 +41,7 @@ class ExperimentsFiles:
         self.sample_dir = os.path.join(self.experiment_dir, "sample")
         self.params_yaml = os.path.join(self.experiment_dir, "params.yaml")  
         self.plots_path  = os.path.join(self.experiment_dir, "plots_{0}.png")
-        self.metrics_path = os.path.join(self.experiment_dir, "plots_{0}.json")
+        self.metrics_path = os.path.join(self.experiment_dir, "metrics_{0}.json")
 
     def _create_directories(self):
         if Path(self.experiment_dir).exists():
@@ -58,10 +58,16 @@ class ExperimentsFiles:
             os.makedirs(self.checkpoints_dir)
             os.makedirs(self.sample_dir)
 
-    def get_lightning_checkpoint_path(self,checkpoint_type:str="best"):
+    def get_lightning_checkpoint_path(self,checkpoint_type:str="best")->Path:
         """
         Checks for lightning checkpoints in experiment folders and returns 
         checkpoint type
+
+        Args:
+        checkpoint_type (str): one of best, last
+
+        Returns:
+        checkpoint_path (Path)
         """
         checkpoints_path = Path(self.checkpoints_dir)
         all_checkpoints = os.listdir(checkpoints_path)

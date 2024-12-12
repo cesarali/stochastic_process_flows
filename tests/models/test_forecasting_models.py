@@ -27,9 +27,9 @@ def test_predictor():
     config = ForecastingModelConfig(diffusion_steps=10)
     datamodule = ForecastingDataModule(config)
     config = datamodule.update_config(config)
-    module = ScoreModule(config)
+    model = ScoreModule(config)
 
-    predictor = module.create_predictor_network(
+    predictor = model.create_predictor_network(
         transformation=datamodule.transformations,
         prediction_splitter=datamodule.create_instance_splitter("test"),
     )

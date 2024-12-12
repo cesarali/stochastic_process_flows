@@ -35,7 +35,8 @@ class ScoreModule(pl.LightningModule):
         config:ForecastingModelConfig,
     ):
         super(ScoreModule,self).__init__()
-
+        self.save_hyperparameters()
+        
         self.config = config  # Store the config for potential future reference
         self.epochs = config.epochs
         self.network = config.network
@@ -46,7 +47,6 @@ class ScoreModule(pl.LightningModule):
         self.maximum_learning_rate = config.maximum_learning_rate
         self.patience = config.patience
 
-         
         # Additional attributes for training state
         self.best_loss = float("inf")
         self.waiting = 0
@@ -192,8 +192,7 @@ class ScoreModule(pl.LightningModule):
         # Gradient clipping
         #if self.clip_gradient is not None:
         #    clip_grad_norm_(self.parameters(), self.clip_gradient)
-        self.log("train_loss", loss, prog_bar=True)
-
+        self.log('train_loss', loss, on_step=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -201,7 +200,7 @@ class ScoreModule(pl.LightningModule):
         with torch.no_grad():
             output = self.train_dynamical_module(*inputs)
         loss = output[0] if isinstance(output, (list, tuple)) else output
-        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_loss", loss, on_step=False, prog_bar=True, logger=True)
         return loss
 
     def on_validation_epoch_end(self):
