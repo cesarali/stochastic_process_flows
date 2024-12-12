@@ -10,6 +10,8 @@ class ForecastingModelConfig:
     # Data configuration
     dataset: str = "electricity_nips"
     freq: str = "H"  
+
+    # Data Shapes 
     prediction_length: int = 24 
     context_length: Optional[int] = None # updated at datamodule
     history_length: Optional[int] = None # updated at datamodule
@@ -18,6 +20,7 @@ class ForecastingModelConfig:
     covariance_dim: int = 1 # updated at datamodule
     input_size: int = 1  # Replace with actual input size
     target_dim: int = 1  # Replace with actual target dimension
+
 
     batch_size: int = 64
     pick_incomplete: bool = True
@@ -39,7 +42,6 @@ class ForecastingModelConfig:
     #Denoising Models
     noise: str = "gp"
     diffusion_steps:int = 100
-    diff_steps: int = 100
     beta_end: float = 0.1
     beta_schedule: str = "linear"
     loss_type: str = "l2"

@@ -65,14 +65,12 @@ testpaths = ["tests"]
 
 
 [tool.ruff]
-
 target-version = "py312"
+ignore = ["F401", "F403", "F405"]  # Add other rules you want to ignore
 
 
 line-length = 140
 
-[tool.ruff]
-ignore = ["F401", "F403", "F405"]  # Add other rules you want to ignore
 
 [tool.ruff.lint]
 # Never enforce `E501` (line length violations).

@@ -40,6 +40,7 @@ from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 
 from typing import NamedTuple
 from torch import nn
+from spflows.models.forecasting.score_lightning import ScoreModule
 
 class TrainOutput(NamedTuple):
     transformation: Transformation
@@ -60,17 +61,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         super().__init__()
         self.config = config
 
-        # THIS WAS TAKEN FROM THE SIGNATURE OF TimeGradTrainingNetwork_All
-        self.input_names = [
-            "target_dimension_indicator",
-            "past_time_feat",
-            "past_target_cdf",
-            "past_observed_values",
-            "past_is_pad",
-            "future_time_feat",
-            "future_target_cdf",
-            "future_observed_values"
-        ]
+        self.train_input_names,_ = ScoreModule.get_networks_inputs(self.config)
         self.dataset = self.config.dataset
         self.batch_size = config.batch_size
         
@@ -82,6 +73,9 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.training_data = None
         self.validation_data = None
 
+        self.prepare_data()
+        self.setup()
+        
     def update_config(self,config:ForecastingModelConfig):
         config.prediction_length = self.prediction_length
         config.context_length = self.context_length
@@ -167,7 +161,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         training_lenght = maybe_len(self.training_data)
         with env._let(max_idle_transforms=training_lenght or 0):
             training_instance_splitter = self.create_instance_splitter("training")
-        training_transforms = self.transformations + training_instance_splitter + SelectFields(self.input_names)
+        training_transforms = self.transformations + training_instance_splitter + SelectFields(self.train_input_names)
 
         self.training_iter_dataset = TransformedIterableDataset(
             dataset=self.training_data,
@@ -181,7 +175,7 @@ class ForecastingDataModule(pl.LightningDataModule):
             validation_lenght = maybe_len(self.validation_data)
             with env._let(max_idle_transforms=validation_lenght or 0):
                 validation_instance_splitter = self.create_instance_splitter("validation")
-            val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.input_names)
+            val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.train_input_names)
 
             self.validation_iter_dataset = TransformedIterableDataset(
                 dataset=self.validation_data,

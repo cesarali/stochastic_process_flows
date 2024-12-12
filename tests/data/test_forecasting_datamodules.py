@@ -8,10 +8,8 @@ def test_dataloader():
 
     config = ForecastingModelConfig()
     datamodule = ForecastingDataModule(config)
-    # Explicitly call prepare_data() and setup()
-    datamodule.prepare_data()
-    datamodule.setup()
     config = datamodule.update_config(config)
+    
     # Test the get_train_databatch function
     databatch = datamodule.get_train_databatch()
     # Assertions for sanity checks

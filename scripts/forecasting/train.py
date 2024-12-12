@@ -110,9 +110,9 @@ def train(
             device=device,
             epochs=epochs,
             learning_rate=learning_rate,
-            num_batches_per_epoch=4,
+            num_batches_per_epoch=2,
             batch_size=batch_size,
-            patience=10,
+            patience=10
         ),
     )
 
@@ -153,13 +153,13 @@ if __name__ == '__main__':
         'timegrad', 'timegrad_old', 'timegrad_all', 'timegrad_rnn', 'timegrad_transformer', 'timegrad_cnn'
     ])
     parser.add_argument('--noise', type=str, choices=['normal', 'ou', 'gp'],default="gp")
-    parser.add_argument('--diffusion_steps', type=int, default=100)
-    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--diffusion_steps', type=int, default=25)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--learning_rate', type=int, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--num_cells', type=int, default=100)
     parser.add_argument('--hidden_dim', type=int, default=100)
-    parser.add_argument('--residual_layers', type=int, default=8)
+    parser.add_argument('--residual_layers', type=int, default=2)
     args = parser.parse_args()
 
     metrics = train(**args.__dict__)

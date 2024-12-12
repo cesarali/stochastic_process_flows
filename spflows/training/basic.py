@@ -27,8 +27,10 @@ def energy_score(forecast, target):
     return obs_dist - pair_dist * 0.5
 
 class LightningTrainer:
-    """ Defines all objects needed to train, check_pointings and evaluation"""
-
+    """ 
+    Defines all objects needed to train, check_pointings and evaluation as well as calls to the 
+    torch trainer
+    """
     def __init__(self, config:ForecastingModelConfig):
         self.config = config
         self.experiment_name = "forecasting"
@@ -61,8 +63,6 @@ class LightningTrainer:
 
     def setup_datamodule(self):
         self.datamodule = ForecastingDataModule(self.config)
-        self.datamodule.prepare_data()
-        self.datamodule.setup()
         self.config = self.datamodule.update_config(self.config)
 
     def setup_model(self):
