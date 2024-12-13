@@ -7,30 +7,30 @@ class ForecastingModelConfig:
     
     experiment_dir:str = None
     experiment_name:str = "forecasting"
+    experiment_indentifier:Optional[str] = None
 
     # Data configuration
-    dataset: str = "electricity_nips"
+    dataset_str_name: str = "electricity_nips"
     freq: str = "H"  
 
     # Data Shapes 
-    prediction_length: int = 24 
+    prediction_length: int = 24 # updated at datamodule
     context_length: Optional[int] = None # updated at datamodule
     history_length: Optional[int] = None # updated at datamodule
     lags_seq: Optional[List[int]] = None # updated at datamodule 
     time_features: Optional[List[Any]] = None # updated at datamodule
     covariance_dim: int = 1 # updated at datamodule
-    input_size: int = 1  # Replace with actual input size
-    target_dim: int = 1  # Replace with actual target dimension
+    input_size: int = 1  # updated at datamodule
+    target_dim: int = 1  # updated at datamodule
 
     batch_size: int = 64
     pick_incomplete: bool = True
-
     scaling: bool = True
     shuffle_buffer_length: Optional[int] = None
     cache_data: bool = False
     weight_decay: float = 1e-6
     maximum_learning_rate: float = 1e-2
-    num_workers: int = 2
+    num_workers: int = 4
     prefetch_factor: int = 3
 
     # Training configuration
@@ -39,6 +39,7 @@ class ForecastingModelConfig:
     learning_rate: float = 1e-3
     seed: int = 1
     patience:Optional[int] = 10
+
     #Denoising Models
     noise: str = "gp"
     diffusion_steps:int = 100

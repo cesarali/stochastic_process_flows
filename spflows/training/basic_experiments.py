@@ -5,7 +5,7 @@ from dataclasses import asdict
 import numpy as np
 from spflows import results_path
 from lightning.pytorch import Trainer
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 from typing import List
 
 from lightning.pytorch.loggers import MLFlowLogger
@@ -18,10 +18,7 @@ from spflows.models.forecasting.score_lightning import ScoreModule
 from gluonts.evaluation.backtest import make_evaluation_predictions
 from gluonts.evaluation import MultivariateEvaluator
 
-def save_hyperparameters_to_yaml(hyperparams: ForecastingModelConfig, file_path: str):
-    hyperparams.time_features = None
-    with open(file_path, 'w') as file:
-        yaml.dump(asdict(hyperparams), file)
+
 
 def energy_score(forecast, target):
     obs_dist = np.mean(np.linalg.norm((forecast - target), axis=-1))
@@ -72,12 +69,12 @@ class BasicLightningExperiment:
         self.experiment_files = ExperimentsFiles(experiment_dir=experiment_dir)
         self.config = ForecastingModelConfig.from_yaml(self.experiment_files.params_yaml)
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")
-        self.datamodule = ForecastingDataModule(self.config)
-        self.config = self.datamodule.update_config(self.config)
+        self.config, all_datasets = ForecastingDataModule.get_data_and_update_config(self.config)
+        self.datamodule = ForecastingDataModule(self.config,all_datasets)
         self.model = ScoreModule.load_from_checkpoint(checkpoint_path, config=self.config, map_location=self.map_location)        
 
     def setup_experiment_files(self):
-        self.experiment_files = ExperimentsFiles(experiment_indentifier=None, delete=True)
+        self.experiment_files = ExperimentsFiles(experiment_indentifier=self.config.experiment_indentifier, delete=True)
         self.config.experiment_dir = self.experiment_files.experiment_dir
         self.config.experiment_name = self.experiment_name
 
@@ -96,16 +93,16 @@ class BasicLightningExperiment:
                                                         monitor=None,
                                                         filename="last-{epoch:02d}")
         self.callbacks = [self.checkpoint_callback_last,self.checkpoint_callback_best]
-
+    
     def setup_datamodule(self):
-        self.datamodule = ForecastingDataModule(self.config)
-        self.config = self.datamodule.update_config(self.config)
+        self.config, all_datasets = ForecastingDataModule.get_data_and_update_config(self.config)
+        self.datamodule = ForecastingDataModule(self.config,all_datasets)
 
     def setup_model(self):
         self.model = ScoreModule(self.config)
 
     def train(self):
-        save_hyperparameters_to_yaml(self.config, self.experiment_files.params_yaml)
+        self.save_hyperparameters_to_yaml(self.config, self.experiment_files.params_yaml)
         trainer = Trainer(
             default_root_dir=self.experiment_files.experiment_dir,
             logger=self.logger,
@@ -115,17 +112,13 @@ class BasicLightningExperiment:
             limit_val_batches=20,
             log_every_n_steps=1,
         )
-        trainer.fit(self.model, 
-                    train_dataloaders=self.datamodule.train_dataloader(),
-                    val_dataloaders=self.datamodule.val_dataloader())
-        
+        trainer.fit(self.model,datamodule=self.datamodule)
         # store metrics save samples
         self.evaluate()
 
     def save_test_samples(self):
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")
         self.model = ScoreModule.load_from_checkpoint(checkpoint_path, model_params=self.config, map_location="cuda")
-        #sample_and_save_from_test(self.model, self.dataloaders, self.experiment_files)
     
     def metrics_evaluations(self,forecasts,targets):
         score = energy_score(
@@ -167,3 +160,10 @@ class BasicLightningExperiment:
         metrics_file = open(self.experiment_files.metrics_path.format("gluonts_evaluator"),"w")
         json.dump(metrics,metrics_file,indent=4)        
         return metrics
+    
+    def save_hyperparameters_to_yaml(self,hyperparams: ForecastingModelConfig, file_path: str):
+        time_features_ = hyperparams.time_features
+        hyperparams.time_features = None
+        with open(file_path, 'w') as file:
+            yaml.dump(asdict(hyperparams), file)
+        hyperparams.time_features = time_features_

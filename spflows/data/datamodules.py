@@ -1,9 +1,8 @@
 from torch.utils.data import DataLoader
 from copy import deepcopy
-import pytorch_lightning as pl
-
+import lightning.pytorch as pl
+from typing import List,Any,Tuple,Optional
 import numpy as np
-from typing import List,Dict
 
 from gluonts.dataset.field_names import FieldName
 from gluonts.transform import (
@@ -33,113 +32,115 @@ from pts.feature import (
 from gluonts.env import env
 from gluonts.itertools import maybe_len
 from gluonts.transform import SelectFields
+from  gluonts.dataset.repository.datasets import TrainDatasets
 from pts.dataset.loader import TransformedIterableDataset
-from gluonts.torch.model.predictor import PyTorchPredictor
 from gluonts.dataset.common import  Dataset as GluonDataset
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
-
-from typing import NamedTuple
-from torch import nn
 from spflows.models.forecasting.score_lightning import ScoreModule
-
-class TrainOutput(NamedTuple):
-    transformation: Transformation
-    trained_net: nn.Module
-    predictor: PyTorchPredictor
 
 class ForecastingDataModule(pl.LightningDataModule):
     """Datamodule to train an stochastic process diffusion module"""
-
-    training_iter_dataset:TransformedIterableDataset
-    validation_iter_dataset:TransformedIterableDataset
-    test_data:GluonDataset
-
+    #training_iter_dataset:TransformedIterableDataset
+    #validation_iter_dataset:TransformedIterableDataset
+    #training_data:GluonDataset
+    #test_data:GluonDataset
+    #validation_data:GluonDataset
     def __init__(
             self,
-            config:ForecastingModelConfig
+            config:ForecastingModelConfig,
+            all_datasets:List[Any] = None,
         ):
-        super().__init__()
+        super(ForecastingDataModule,self).__init__()
         self.config = config
-        self.save_hyperparameters()
-        self.train_input_names,_ = ScoreModule.get_networks_inputs(self.config)
-        self.dataset = self.config.dataset
-        self.batch_size = config.batch_size
-        
-        # Do not call setup here; let Lightning manage it.
-        self.target_dim = None
-        self.covariance_dim = None
-        self.prediction_length = None
-        self.input_size = None
-        self.training_data = None
-        self.validation_data = None
 
-        self.prepare_data()
-        self.setup()
-        
-    def update_config(self,config:ForecastingModelConfig):
-        config.prediction_length = self.prediction_length
-        config.context_length = self.context_length
-        config.lags_seq = self.lags_seq
-        config.time_features = self.time_features
-        config.history_length = self.history_length
-        config.target_dim = self.target_dim
-        config.covariance_dim = self.covariance_dim
-        config.input_size = self.input_size
-        return config
-        
-    def prepare_data(self):
+        if all_datasets is None:
+            config, all_datasets = ForecastingDataModule.get_data_and_update_config(config)
+
+        self.training_data = all_datasets[0]
+        self.test_data = all_datasets[1]
+        self.validation_data = all_datasets[2]
+
+    @staticmethod
+    def get_data_and_update_config(config: ForecastingModelConfig)->Tuple[ForecastingModelConfig,List[GluonDataset]]:
+        """
+        this is all the config information that is obtained from 
+        the data metadata as well as the config, that is requiered by the 
+        model initialization, but should be called independently of the "setup"
+        and "prepare_data" functions which are handled by lightning datamodules
+        inside trainer calls
+        """
+        dataset = get_dataset(config.dataset_str_name, regenerate=False)
+
+        config.covariance_dim = 4 if config.dataset_str_name != 'exchange_rate_nips' else -4
+        config.prediction_length = dataset.metadata.prediction_length
+        config.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
+        config.input_size = config.target_dim * 4 + config.covariance_dim
+        config.context_length = config.context_length if config.context_length is not None else config.prediction_length
+        config.freq=dataset.metadata.freq
+
+        config.lags_seq = (
+            config.lags_seq
+            if config.lags_seq is not None
+            else lags_for_fourier_time_features_from_frequency(freq_str=config.freq)
+        )
+        config.time_features = (
+            config.time_features
+            if config.time_features is not None
+            else fourier_time_features_from_frequency(config.freq)
+        )
+
+        # If context is not provided in the config, the prediction length is used as context
+        config.history_length = config.context_length + max(config.lags_seq)
+
+        # Assuming all_datasets is computed elsewhere
+        all_datasets = ForecastingDataModule.grouper_datasets(dataset, config)
+        return config, all_datasets
+    
+    @staticmethod
+    def grouper_datasets(dataset:TrainDatasets,config:ForecastingModelConfig)->List[GluonDataset]:
         """Download and validate data."""
-        # Load and validate data
-        dataset = get_dataset(self.dataset, regenerate=False)
-
-        # Store metadata and attributes for later use
-        self.covariance_dim = 4 if self.dataset != 'exchange_rate_nips' else -4
-        self.prediction_length = dataset.metadata.prediction_length
-        self.config.prediction_length = dataset.metadata.prediction_length
-        self.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
-        self.config.target_dim = self.target_dim
-        self.input_size = self.target_dim * 4 + self.covariance_dim
-
         # Set the grouped data attributes for later use
-        train_grouper = MultivariateGrouper(max_target_dim=min(2000, self.target_dim))
+        train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
         test_grouper = MultivariateGrouper(
             num_test_dates=int(len(dataset.test) / len(dataset.train)),
-            max_target_dim=min(2000, self.target_dim),
+            max_target_dim=min(2000, config.target_dim),
         )
-        self.training_data = train_grouper(dataset.train)
-        self.test_data = test_grouper(dataset.test)
+        training_data = train_grouper(dataset.train)
+        test_data = test_grouper(dataset.test)
 
         # Prepare validation data
         val_window = 20 * dataset.metadata.prediction_length
-        self.validation_data = [
-            {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in self.training_data
+        validation_data = [
+            {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in training_data
         ]
-        for item in self.training_data:
+        for item in training_data:
             item["target"] = item["target"][:, :-val_window]
+        return [training_data,test_data,validation_data]
 
-    def setup_time_features(self):
+    def setup_from_config(self):
+        """function get_data_and_update_config was called before"""
+        config:ForecastingModelConfig = self.config
+        self.prediction_length = config.prediction_length
+        self.context_length = config.context_length if config.context_length is not None else self.prediction_length
+        self.history_length = self.context_length + max(config.lags_seq)
+        self.target_dim = config.target_dim
+        self.covariance_dim = 4 if config.dataset_str_name != 'exchange_rate_nips' else -4
+        self.input_dim = self.target_dim * 4 + self.covariance_dim
+
+        self.lags_seq = config.lags_seq
+        self.time_features = config.time_features
+
+        self.pick_incomplete = config.pick_incomplete
+        self.scaling = config.scaling
+
+        self.train_input_names,_ = ScoreModule.get_networks_inputs(self.config)
+        self.dataset_str_name = self.config.dataset_str_name
+        self.batch_size = config.batch_size
+
+    def setup_samplers(self):
         """
         Here we define how we are going to select the different prediction seq2seq elements
         """
-        self.lags_seq = (
-            self.config.lags_seq
-            if self.config.lags_seq is not None
-            else lags_for_fourier_time_features_from_frequency(freq_str=self.config.freq)
-        )
-
-        self.time_features = (
-            self.config.time_features
-            if self.config.time_features is not None
-            else fourier_time_features_from_frequency(self.config.freq)
-        )
-
-        self.prediction_length = self.config.prediction_length
-        self.context_length = self.config.context_length if self.config.context_length is not None else self.prediction_length
-        self.history_length = self.context_length + max(self.lags_seq)
-        self.pick_incomplete = self.config.pick_incomplete
-        self.input_dim =  self.target_dim * 4 + self.covariance_dim
-        self.scaling = self.config.scaling
-
         # the random selection of points along the path
         # to take the seq2seq segments
         self.train_sampler = ExpectedNumInstanceSampler(
@@ -153,37 +154,6 @@ class ForecastingDataModule(pl.LightningDataModule):
             min_future=self.prediction_length,
         )
     
-    def setup(self):
-        """set features, transformations, get data, set datasets"""
-        self.setup_time_features()
-        self.setup_transformations()
-
-        training_lenght = maybe_len(self.training_data)
-        with env._let(max_idle_transforms=training_lenght or 0):
-            training_instance_splitter = self.create_instance_splitter("training")
-        training_transforms = self.transformations + training_instance_splitter + SelectFields(self.train_input_names)
-
-        self.training_iter_dataset = TransformedIterableDataset(
-            dataset=self.training_data,
-            transform=training_transforms,
-            is_train=True,
-            shuffle_buffer_length=self.config.shuffle_buffer_length,
-            cache_data=self.config.cache_data,
-        )
-
-        if self.validation_data is not None:
-            validation_lenght = maybe_len(self.validation_data)
-            with env._let(max_idle_transforms=validation_lenght or 0):
-                validation_instance_splitter = self.create_instance_splitter("validation")
-            val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.train_input_names)
-
-            self.validation_iter_dataset = TransformedIterableDataset(
-                dataset=self.validation_data,
-                transform=val_transforms,
-                is_train=True,
-                cache_data=self.config.cache_data,
-            )
-        
     def setup_transformations(self) -> Transformation:
         self.transformations =  Chain(
             [
@@ -220,7 +190,39 @@ class ForecastingDataModule(pl.LightningDataModule):
                 AsNumpyArray(field=FieldName.FEAT_STATIC_CAT, expected_ndim=1),
             ]
         )
-    
+
+    def setup(self,stage: Optional[str] = None):
+        """set features, transformations, get data, set datasets"""
+        self.setup_from_config()
+        self.setup_samplers()
+        self.setup_transformations()
+
+        training_lenght = maybe_len(self.training_data)
+        with env._let(max_idle_transforms=training_lenght or 0):
+            training_instance_splitter = self.create_instance_splitter("training")
+        training_transforms = self.transformations + training_instance_splitter + SelectFields(self.train_input_names)
+
+        self.training_iter_dataset = TransformedIterableDataset(
+            dataset=self.training_data,
+            transform=training_transforms,
+            is_train=True,
+            shuffle_buffer_length=self.config.shuffle_buffer_length,
+            cache_data=self.config.cache_data,
+        )
+
+        if self.validation_data is not None:
+            validation_lenght = maybe_len(self.validation_data)
+            with env._let(max_idle_transforms=validation_lenght or 0):
+                validation_instance_splitter = self.create_instance_splitter("validation")
+            val_transforms = self.transformations + validation_instance_splitter + SelectFields(self.train_input_names)
+
+            self.validation_iter_dataset = TransformedIterableDataset(
+                dataset=self.validation_data,
+                transform=val_transforms,
+                is_train=True,
+                cache_data=self.config.cache_data,
+            )
+        
     def create_instance_splitter(self, mode: str):
         assert mode in ["training", "validation", "test"]
 
@@ -262,6 +264,7 @@ class ForecastingDataModule(pl.LightningDataModule):
             num_workers=self.config.num_workers,
             prefetch_factor=self.config.prefetch_factor,
             pin_memory=True,
+            persistent_workers=True,
             worker_init_fn=self._worker_init_fn
         )
         return training_data_loader
@@ -273,6 +276,7 @@ class ForecastingDataModule(pl.LightningDataModule):
             num_workers=self.config.num_workers,
             prefetch_factor=self.config.prefetch_factor,
             pin_memory=True,
+            persistent_workers=True,
             worker_init_fn=self._worker_init_fn,
         )
         return validation_data_loader
@@ -300,3 +304,4 @@ class ForecastingDataModule(pl.LightningDataModule):
             return type(databatch)(*(value.to(device) if hasattr(value, 'to') else value for value in databatch))
         else:
             raise TypeError("Input data must be a dictionary or namedtuple.")
+

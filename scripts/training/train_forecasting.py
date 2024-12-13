@@ -6,7 +6,7 @@ def train(args):
     # Update dataclass with parsed arguments
     config = ForecastingModelConfig(
         seed=args.seed,
-        dataset=args.dataset,
+        dataset_str_name=args.dataset,
         network=args.network,
         noise=args.noise,
         diffusion_steps=args.diffusion_steps,
