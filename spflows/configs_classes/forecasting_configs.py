@@ -35,10 +35,12 @@ class ForecastingModelConfig:
 
     # Training configuration
     epochs: int = 100
-    num_batches_per_epoch: int = 10
+    num_batches_per_epoch: int = 50
+    num_batches_per_epoch_val: int = 20
     learning_rate: float = 1e-3
     seed: int = 1
     patience:Optional[int] = 10
+    clip_gradient:Optional[float] = None
 
     #Denoising Models
     noise: str = "gp"

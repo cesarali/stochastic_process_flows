@@ -12,6 +12,8 @@ from gluonts.model.predictor import Predictor
 from gluonts.torch.model.predictor import PyTorchPredictor
 from gluonts.torch.util import copy_parameters
 from gluonts.transform import Transformation
+from gluonts.evaluation.backtest import make_evaluation_predictions
+from gluonts.evaluation import MultivariateEvaluator
 
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 from spflows.models.forecasting import (
@@ -22,8 +24,18 @@ from spflows.models.forecasting import (
     TimeGradTrainingNetwork_Transformer, TimeGradPredictionNetwork_Transformer,
     TimeGradTrainingNetwork_CNN, TimeGradPredictionNetwork_CNN,
 )
+
 from spflows.utils import NotSupportedModelNoiseCombination
 import lightning.pytorch as pl
+import numpy as np
+
+
+def energy_score(forecast, target):
+    obs_dist = np.mean(np.linalg.norm((forecast - target), axis=-1))
+    pair_dist = np.mean(
+        np.linalg.norm(forecast[:, np.newaxis, ...] - forecast, axis=-1)
+    )
+    return obs_dist - pair_dist * 0.5
 
 class ScoreModule(pl.LightningModule):
     """
@@ -217,5 +229,56 @@ class ScoreModule(pl.LightningModule):
             self.waiting += 1
 
     def on_train_end(self):
+        # take the best net
         if self.best_net_state:
             self.load_state_dict(self.best_net_state)
+        #evaluate metrics
+        datamodule = self.trainer.datamodule
+        metrics = self.evaluate(datamodule)
+        # Log metrics using the logger
+        for key, value in metrics.items():
+            mlflow_client_ = self.logger.experiment
+            mlflow_client_.log_metric(self.logger._run_id, key, value)
+
+    # ------------------------------ MODEL METRICS -------------------------------------
+    def quatile_metrics_evaluations(self,forecasts,targets,datamodule):
+        score = energy_score(
+            forecast=np.array([x.samples for x in forecasts]),
+            target=np.array([x[-datamodule.prediction_length:] for x in targets])[:, None, ...],
+        )
+
+        evaluator = MultivariateEvaluator(quantiles=(np.arange(20) / 20.0)[1:], target_agg_funcs={'sum': np.sum})
+        agg_metric, _ = evaluator(targets, forecasts, num_series=len(datamodule.test_data))
+
+        metrics = dict(
+            CRPS=agg_metric['mean_wQuantileLoss'],
+            ND=agg_metric['ND'],
+            NRMSE=agg_metric['NRMSE'],
+            CRPS_sum=agg_metric['m_sum_mean_wQuantileLoss'],
+            ND_sum=agg_metric['m_sum_ND'],
+            NRMSE_sum=agg_metric['m_sum_NRMSE'],
+            energy_score=score,
+        )
+        metrics = {k: float(v) for k, v in metrics.items()}
+        return metrics
+
+    def define_predictor_and_sample(self,datamodule:pl.LightningDataModule):
+        predictor = self.create_predictor_network(
+            transformation=datamodule.transformations,
+            prediction_splitter=datamodule.create_instance_splitter("test"),
+        )
+        forecast_it, ts_it = make_evaluation_predictions(dataset=datamodule.test_data,
+                                                         predictor=predictor,
+                                                         num_samples=10)
+        forecasts = list(forecast_it)
+        targets = list(ts_it)
+        return forecasts, targets
+
+    def evaluate(self,datamodule:pl.LightningDataModule):
+        forecasts, targets = self.define_predictor_and_sample(datamodule)
+        metrics = self.quatile_metrics_evaluations(forecasts, targets, datamodule)
+        self.metrics = metrics  # Store the metrics in the instance attribute
+        return metrics
+
+    def get_metrics(self):
+        return self.metrics

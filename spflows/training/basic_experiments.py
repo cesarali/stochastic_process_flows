@@ -1,31 +1,19 @@
 import os
-import json
 import yaml
 from dataclasses import asdict
-import numpy as np
 from spflows import results_path
 from lightning.pytorch import Trainer
-import lightning.pytorch as pl
 from typing import List
 
-from lightning.pytorch.loggers import MLFlowLogger
+from pytorch_lightning.loggers import MLFlowLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 from spflows.utils.experiment_files import ExperimentsFiles
+
+
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 from spflows.data.datamodules import ForecastingDataModule
-
 from spflows.models.forecasting.score_lightning import ScoreModule
-from gluonts.evaluation.backtest import make_evaluation_predictions
-from gluonts.evaluation import MultivariateEvaluator
 
-
-
-def energy_score(forecast, target):
-    obs_dist = np.mean(np.linalg.norm((forecast - target), axis=-1))
-    pair_dist = np.mean(
-        np.linalg.norm(forecast[:, np.newaxis, ...] - forecast, axis=-1)
-    )
-    return obs_dist - pair_dist * 0.5
 
 class BasicLightningExperiment:
     """ 
@@ -34,8 +22,8 @@ class BasicLightningExperiment:
     """
     experiment_name:str = ""
     experiment_files:ExperimentsFiles
-    datamodule:pl.LightningDataModule
-    model:pl.LightningModule
+    datamodule:ForecastingDataModule
+    model:ScoreModule
 
     set_to_train:bool = False
     logger:MLFlowLogger = None
@@ -109,17 +97,25 @@ class BasicLightningExperiment:
             max_epochs=self.config.epochs,
             callbacks=self.callbacks,
             limit_train_batches=self.config.num_batches_per_epoch,
-            limit_val_batches=20,
+            limit_val_batches=self.config.num_batches_per_epoch_val,
             log_every_n_steps=1,
+            gradient_clip_val=self.config.clip_gradient
         )
         trainer.fit(self.model,datamodule=self.datamodule)
-        # store metrics save samples
-        self.evaluate()
 
     def save_test_samples(self):
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")
         self.model = ScoreModule.load_from_checkpoint(checkpoint_path, model_params=self.config, map_location="cuda")
-    
+        
+    def save_hyperparameters_to_yaml(self,hyperparams: ForecastingModelConfig, file_path: str):
+        time_features_ = hyperparams.time_features
+        hyperparams.time_features = None
+        with open(file_path, 'w') as file:
+            yaml.dump(asdict(hyperparams), file)
+        hyperparams.time_features = time_features_
+
+
+"""
     def metrics_evaluations(self,forecasts,targets):
         score = energy_score(
             forecast=np.array([x.samples for x in forecasts]),
@@ -160,10 +156,4 @@ class BasicLightningExperiment:
         metrics_file = open(self.experiment_files.metrics_path.format("gluonts_evaluator"),"w")
         json.dump(metrics,metrics_file,indent=4)        
         return metrics
-    
-    def save_hyperparameters_to_yaml(self,hyperparams: ForecastingModelConfig, file_path: str):
-        time_features_ = hyperparams.time_features
-        hyperparams.time_features = None
-        with open(file_path, 'w') as file:
-            yaml.dump(asdict(hyperparams), file)
-        hyperparams.time_features = time_features_
+"""
