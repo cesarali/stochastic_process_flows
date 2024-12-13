@@ -54,7 +54,7 @@ class BasicLightningExperiment:
 
     def setup_experiment_from_dir(self,experiment_dir):
         """"""
-        self.experiment_files = ExperimentsFiles(experiment_dir=experiment_dir)
+        self.experiment_files = ExperimentsFiles(experiment_dir=experiment_dir,results_path=self.config.results_path)
         self.config = ForecastingModelConfig.from_yaml(self.experiment_files.params_yaml)
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")
         self.config, all_datasets = ForecastingDataModule.get_data_and_update_config(self.config)
@@ -113,7 +113,6 @@ class BasicLightningExperiment:
         with open(file_path, 'w') as file:
             yaml.dump(asdict(hyperparams), file)
         hyperparams.time_features = time_features_
-
 
 """
     def metrics_evaluations(self,forecasts,targets):

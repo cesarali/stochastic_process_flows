@@ -20,15 +20,17 @@ class ExperimentsFiles:
         - parametes yamls
         - plot path
     """
-    def __init__(self,experiment_dir=None,experiment_indentifier=None,delete=False):
+    def __init__(self,experiment_dir=None,experiment_indentifier=None,delete=False,results_path=None):
+        if results_path is None:
+            from spflows import results_path
+        self.results_path = results_path
         self.delete = delete
         self.define_experiment_folder(experiment_dir,experiment_indentifier)
         self._create_directories()
 
     def define_experiment_folder(self,experiment_dir=None,experiment_indentifier=None):
         if experiment_dir is None:
-            from spflows import results_path
-            results_dir = str(results_path)
+            results_dir = str(self.results_path)
             self.experiment_indentifier = experiment_indentifier
             if self.experiment_indentifier is None:
                 self.experiment_indentifier = str(int(time.time()))

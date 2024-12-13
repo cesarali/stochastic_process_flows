@@ -24,7 +24,7 @@ with open('README.md', 'r') as f:
 
 setup(name='spflows',
       version='0.1.0',
-      description='Time series FLow Matching',
+      description='Time series Flow Matching',
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='',

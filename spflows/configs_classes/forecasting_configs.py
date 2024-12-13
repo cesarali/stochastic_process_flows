@@ -8,7 +8,8 @@ class ForecastingModelConfig:
     experiment_dir:str = None
     experiment_name:str = "forecasting"
     experiment_indentifier:Optional[str] = None
-
+    results_path:Optional[str] = None
+    
     # Data configuration
     dataset_str_name: str = "electricity_nips"
     freq: str = "H"  
