@@ -59,47 +59,12 @@ class GeckoLightningExperiment(BasicLightningExperiment):
         self.datamodule = GeckoDatamodule(self.config,all_datasets)
         self.model = ScoreModule.load_from_checkpoint(checkpoint_path, config=self.config, map_location=self.map_location)
 
-    def setup_experiment_files(self):
-        self.experiment_files = ExperimentsFiles(experiment_indentifier=self.config.experiment_indentifier, delete=True)
-        self.config.experiment_dir = self.experiment_files.experiment_dir
-        self.config.experiment_name = self.experiment_name
-
-    def setup_logger(self):
-        ml_flow_folder = os.path.join(results_path, "mlruns")
-        self.logger = MLFlowLogger(experiment_name=self.experiment_name,
-                                   tracking_uri=f"file:{ml_flow_folder}")
-
-    def setup_callbacks(self):
-        self.checkpoint_callback_best = ModelCheckpoint(dirpath=self.experiment_files.checkpoints_dir,
-                                                        save_top_k=1,
-                                                        monitor="val_loss",
-                                                        filename="best-{epoch:02d}")
-        self.checkpoint_callback_last = ModelCheckpoint(dirpath=self.experiment_files.checkpoints_dir,
-                                                        save_top_k=1,
-                                                        monitor=None,
-                                                        filename="last-{epoch:02d}")
-        self.callbacks = [self.checkpoint_callback_last,self.checkpoint_callback_best]
-
     def setup_datamodule(self):
         self.config, all_datasets = GeckoDatamodule.get_data_and_update_config(self.config)
         self.datamodule = GeckoDatamodule(self.config,all_datasets)
 
     def setup_model(self):
         self.model = ScoreModule(self.config)
-
-    def train(self):
-        self.save_hyperparameters_to_yaml(self.config, self.experiment_files.params_yaml)
-        trainer = Trainer(
-            default_root_dir=self.experiment_files.experiment_dir,
-            logger=self.logger,
-            max_epochs=self.config.epochs,
-            callbacks=self.callbacks,
-            limit_train_batches=self.config.num_batches_per_epoch,
-            limit_val_batches=self.config.num_batches_per_epoch_val,
-            log_every_n_steps=1,
-            gradient_clip_val=self.config.clip_gradient
-        )
-        trainer.fit(self.model,datamodule=self.datamodule)
 
     def save_test_samples(self):
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")

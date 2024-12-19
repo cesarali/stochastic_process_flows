@@ -194,7 +194,7 @@ class ScoreModule(pl.LightningModule):
         return [optimizer], [lr_scheduler]
 
     def training_step(self, batch, batch_idx):
-        inputs = [v for v in batch.values()]
+        inputs = list(batch.values())
         loss = self.train_dynamical_module(*inputs)
         if isinstance(loss, (list, tuple)):
             loss = loss[0]
@@ -206,7 +206,7 @@ class ScoreModule(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs = [v for v in batch.values()]
+        inputs = list(batch.values())
         with torch.no_grad():
             output = self.train_dynamical_module(*inputs)
         loss = output[0] if isinstance(output, (list, tuple)) else output

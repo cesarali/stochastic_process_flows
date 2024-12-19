@@ -7,7 +7,7 @@ def train(args):
     # Update dataclass with parsed arguments
     config = GeckoModelConfig(
         seed=args.seed,
-        dataset_str_name=args.dataset,
+        date_str=args.date_str,
         network=args.network,
         noise=args.noise,
         diffusion_steps=args.diffusion_steps,
@@ -26,7 +26,7 @@ if __name__=="__main__":
     # Argument parser
     parser = argparse.ArgumentParser(description='Train forecasting model.')
     parser.add_argument('--seed', type=int, default=1)
-    parser.add_argument('--dataset', type=str, default="electricity_nips")
+    parser.add_argument('--date_str', type=str, default="2024-12-18")
     parser.add_argument('--network', type=str, default="timegrad_rnn", choices=[
         'timegrad', 'timegrad_old', 'timegrad_all', 'timegrad_rnn', 'timegrad_transformer', 'timegrad_cnn'
     ])

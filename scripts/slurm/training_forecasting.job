@@ -6,6 +6,5 @@
 #SBATCH --gpus=1
 #SBATCH --gpus=tesla_v100:1
 
-
-
+scp 2024-12-18.tar ojedamarin@login1.hpc.uni-potsdam.de:~/Projects/Portfolio/stochastic_process_flows/data/raw/gecko
 srun /home/ojedamarin/.conda/envs/torchts/bin/python train_forecasting.py --epochs 100 

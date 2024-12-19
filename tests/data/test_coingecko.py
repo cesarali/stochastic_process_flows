@@ -28,8 +28,13 @@ def test_gecko_dataset():
     df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
 
     dataset = CoinGeckoDataset(coin_id=coins_not_bitcoin[0],df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
-    print(dataset.metadata())
-    assert dataset.metadata().prediction_length == 96
+    print(dataset.metadata)
+    assert dataset.metadata.prediction_length == 96
+
+def test_frequency_alignement():
+    config = GeckoModelConfig()
+    config,all_datasets = GeckoDatamodule.get_data_and_update_config(config)
+    assert all_datasets is not None
 
 def test_gecko_dataloader():
     config = GeckoModelConfig()
@@ -52,4 +57,4 @@ def test_forward():
     print(loss)
 
 if __name__ == "__main__":
-    test_forward()
+    test_frequency_alignement()

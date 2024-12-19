@@ -129,7 +129,7 @@ def get_elapsed_hours_with_max(ts,date_0=None,max=2000):
     elapsed_hours = elapsed_time / pd.Timedelta(hours=1)
     # You can now add this as a new column to your DataFrame
     elapsed_hours = np.ceil(elapsed_hours.values).astype(int)
-    valid_elapsed = np.where(elapsed_hours<max)
+    valid_elapsed = np.where((elapsed_hours < max) & (elapsed_hours > 0))
     indexes = np.arange(len(elapsed_hours))
 
     return elapsed_hours[valid_elapsed],indexes[valid_elapsed]
@@ -171,8 +171,11 @@ def get_dataframe_with_freq_from_bitcoin(df:pd.DataFrame,df_bitcoin_freq:pd.Data
     """
     date_0 = df_bitcoin_freq.index[0]
     elapsed_hours,valid_index = get_elapsed_hours_with_max(df,date_0,max=len(df_bitcoin_freq))
-    # Define the new hourly frequency
-    # Create the DataFrame with NaN values
-    df_freq = pd.DataFrame(np.nan, index=df_bitcoin_freq.index, columns=df.columns)
-    df_freq.iloc[elapsed_hours] = df.iloc[valid_index]
-    return df_freq
+    if len(elapsed_hours) > 0:
+        # Define the new hourly frequency
+        # Create the DataFrame with NaN values
+        df_freq = pd.DataFrame(np.nan, index=df_bitcoin_freq.index, columns=df.columns)
+        df_freq.iloc[elapsed_hours] = df.iloc[valid_index]
+        return df_freq
+    else:
+        return None

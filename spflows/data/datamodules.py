@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 from copy import deepcopy
 import lightning.pytorch as pl
 from typing import List,Any,Tuple,Optional
@@ -39,7 +40,7 @@ from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 from spflows.models.forecasting.score_lightning import ScoreModule
 from spflows.data.gecko.gecko_datasets import CoinGeckoDataset
 from spflows.configs_classes.gecko_configs import GeckoModelConfig
-from spflows.data.gecko.gecko_metadata import CoinMetadata,AllCoinsMetadata
+from spflows.data.gecko.gecko_metadata import AllCoinsMetadata
 from spflows.data.gecko.gecko_utils import get_dataframe_with_freq_bitcoin,get_dataframe_with_freq_from_bitcoin
 from spflows.data.gecko.gecko_requests import (
     get_key
@@ -335,14 +336,18 @@ class GeckoDatamodule(ForecastingDataModule):
         df_bitcoin = all_coins_metadata.df_time_series["bitcoin"]
         df_bitcoin_freq = get_dataframe_with_freq_bitcoin(df_bitcoin)
 
-        df = all_coins_metadata.df_time_series["solana"]
-        df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
-        dataset1 = CoinGeckoDataset(coin_id="solana",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
-
-        df = all_coins_metadata.df_time_series["ethereum"]
-        df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
-        dataset2 = CoinGeckoDataset(coin_id="ethereum",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
-        return [dataset1,dataset2]
+        all_datasets = []
+        not_bitcoin_coins = [coin for coin in all_coins_metadata.df_time_series.keys() if coin != "bitcoin"]
+        print("Setting Data Frequencies")
+        for not_bitcoin_coin in tqdm(not_bitcoin_coins):
+            df = all_coins_metadata.df_time_series[not_bitcoin_coin]
+            df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
+            if df_freq is not None:
+                dataset = CoinGeckoDataset(coin_id=not_bitcoin_coin,df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
+                all_datasets.append(dataset)
+            else:
+                pass
+        return all_datasets
 
     @staticmethod
     def get_data_and_update_config(config: GeckoModelConfig)->Tuple[GeckoModelConfig,List[GluonDataset]]:
