@@ -10,6 +10,7 @@ class GeckoModelConfig:
     results_path:Optional[str] = None
 
     # Data configuration
+    dataset_str_name: str = "coins"
     date_str: str = "2024-12-18"
     freq: str = "H"
 

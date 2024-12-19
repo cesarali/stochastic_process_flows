@@ -36,6 +36,10 @@ def test_gecko_dataset():
 def test_gecko_dataloader():
     config = GeckoModelConfig()
     config,all_datasets = GeckoDatamodule.get_data_and_update_config(config)
+    datamodule = GeckoDatamodule(config,all_datasets)
+    datamodule.setup()
+    databatch = datamodule.get_train_databatch()
+    print(databatch.keys())
 
 if __name__ == "__main__":
     test_gecko_dataloader()

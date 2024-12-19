@@ -61,7 +61,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         self.config = config
 
         if all_datasets is None:
-            config, all_datasets = ForecastingDataModule.get_data_and_update_config(config)
+            config, all_datasets = self.__class__.get_data_and_update_config(config)
 
         self.training_data = all_datasets[0]
         self.test_data = all_datasets[1]
@@ -312,7 +312,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         else:
             raise TypeError("Input data must be a dictionary or namedtuple.")
 
-class GeckoDatamodule(pl.LightningDataModule):
+class GeckoDatamodule(ForecastingDataModule):
     """Datamodule to train an stochastic process diffusion module"""
     #training_iter_dataset:TransformedIterableDataset
     #validation_iter_dataset:TransformedIterableDataset
@@ -324,15 +324,7 @@ class GeckoDatamodule(pl.LightningDataModule):
             config:GeckoModelConfig,
             all_datasets:List[Any] = None,
         ):
-        super(GeckoDatamodule,self).__init__()
-        self.config = config
-
-        if all_datasets is None:
-            config, all_datasets = GeckoDatamodule.get_data_and_update_config(config)
-
-        self.training_data = all_datasets[0]
-        self.test_data = all_datasets[1]
-        self.validation_data = all_datasets[2]
+        super(GeckoDatamodule,self).__init__(config,all_datasets)
 
     @staticmethod
     def get_coingecko_datasets(config:GeckoModelConfig,regenerate=False)->CoinGeckoDataset:
