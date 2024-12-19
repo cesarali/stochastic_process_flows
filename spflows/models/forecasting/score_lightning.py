@@ -248,7 +248,7 @@ class ScoreModule(pl.LightningModule):
         evaluator = MultivariateEvaluator(quantiles=(np.arange(20) / 20.0)[1:], target_agg_funcs={'sum': np.sum})
         agg_metric, _ = evaluator(targets, forecasts, num_series=len(datamodule.test_data))
 
-        metrics = dict(
+        metrics = dict(  # noqa: C408
             CRPS=agg_metric['mean_wQuantileLoss'],
             ND=agg_metric['ND'],
             NRMSE=agg_metric['NRMSE'],
@@ -267,7 +267,7 @@ class ScoreModule(pl.LightningModule):
         )
         forecast_it, ts_it = make_evaluation_predictions(dataset=datamodule.test_data,
                                                          predictor=predictor,
-                                                         num_samples=10)
+                                                         num_samples=self.config.num_samples)
         forecasts = list(forecast_it)
         targets = list(ts_it)
         return forecasts, targets

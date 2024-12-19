@@ -13,7 +13,7 @@ def test_forward():
     datamodule.setup()
     databatch = datamodule.get_train_databatch()
     module = ScoreModule(config)
-    inputs = [v for v in databatch.values()]
+    inputs = list(databatch.values())
     loss = module.train_dynamical_module(*inputs)
     assert loss is not None
 

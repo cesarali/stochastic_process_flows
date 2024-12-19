@@ -327,17 +327,22 @@ class GeckoDatamodule(ForecastingDataModule):
         super(GeckoDatamodule,self).__init__(config,all_datasets)
 
     @staticmethod
-    def get_coingecko_datasets(config:GeckoModelConfig,regenerate=False)->CoinGeckoDataset:
+    def get_coingecko_datasets(config:GeckoModelConfig,regenerate=False)->List[CoinGeckoDataset]:
         coingecko_key = get_key()
         all_coins_metadata = AllCoinsMetadata(date_string=config.date_str,
                                               coingecko_key=coingecko_key)
         all_coins_metadata.load_existing_timeseries()
-        df = all_coins_metadata.df_time_series["solana"]
         df_bitcoin = all_coins_metadata.df_time_series["bitcoin"]
         df_bitcoin_freq = get_dataframe_with_freq_bitcoin(df_bitcoin)
+
+        df = all_coins_metadata.df_time_series["solana"]
         df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
-        dataset = CoinGeckoDataset(coin_id="solana",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
-        return dataset
+        dataset1 = CoinGeckoDataset(coin_id="solana",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
+
+        df = all_coins_metadata.df_time_series["ethereum"]
+        df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
+        dataset2 = CoinGeckoDataset(coin_id="ethereum",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
+        return [dataset1,dataset2]
 
     @staticmethod
     def get_data_and_update_config(config: GeckoModelConfig)->Tuple[GeckoModelConfig,List[GluonDataset]]:
@@ -348,8 +353,8 @@ class GeckoDatamodule(ForecastingDataModule):
         and "prepare_data" functions which are handled by lightning datamodules
         inside trainer calls
         """
-        dataset = GeckoDatamodule.get_coingecko_datasets(config, regenerate=False)
-
+        datasets = GeckoDatamodule.get_coingecko_datasets(config, regenerate=False)
+        dataset = datasets[0]
         config.covariance_dim = 4 if config.date_str != 'exchange_rate_nips' else -4
         config.prediction_length = dataset.metadata.prediction_length
         config.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
@@ -372,27 +377,55 @@ class GeckoDatamodule(ForecastingDataModule):
         config.history_length = config.context_length + max(config.lags_seq)
 
         # Assuming all_datasets is computed elsewhere
-        all_datasets = GeckoDatamodule.grouper_all_datasets(dataset, config)
+        all_datasets = GeckoDatamodule.grouper_all_datasets(datasets, config)
         return config, all_datasets
 
     @staticmethod
-    def grouper_all_datasets(dataset:TrainDatasets,config:ForecastingModelConfig)->List[GluonDataset]:
-        """Download and validate data."""
-        # Set the grouped data attributes for later use
-        train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
-        test_grouper = MultivariateGrouper(
-            num_test_dates=int(len(dataset.test) / len(dataset.train)),
-            max_target_dim=min(2000, config.target_dim),
-        )
-        training_data = train_grouper(dataset.train)
-        test_data = test_grouper(dataset.test)
+    def grouper_all_datasets(datasets: List[TrainDatasets], config: ForecastingModelConfig) -> List[List[GluonDataset]]:
+        """
+        Download and validate data for a list of datasets.
 
-        # Prepare validation data
-        val_window = 20 * dataset.metadata.prediction_length
-        validation_data = [
-            {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in training_data
-        ]
-        for item in training_data:
-            item["target"] = item["target"][:, :-val_window]
-        return [training_data,test_data,validation_data]
+        Args:
+        ----
+        datasets: List[TrainDatasets]
+            A list of datasets containing training and test data.
+        config: ForecastingModelConfig
+            Configuration object with target dimensions and other settings.
+
+        Returns:
+        -------
+        grouped_datasets: List[List[GluonDataset]]
+            A list containing grouped training, test, and validation datasets for all input datasets.
+        """
+        all_training_data = []
+        all_test_data = []
+        all_validation_data = []
+
+        for dataset in datasets:
+            # Initialize groupers for each dataset
+            train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
+            test_grouper = MultivariateGrouper(
+                num_test_dates=int(len(dataset.test) / len(dataset.train)),
+                max_target_dim=min(2000, config.target_dim),
+            )
+
+            # Apply the groupers
+            training_data = train_grouper(dataset.train)
+            test_data = test_grouper(dataset.test)
+
+            # Prepare validation data
+            val_window = 20 * dataset.metadata.prediction_length
+            validation_data = [
+                {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in training_data
+            ]
+            for item in training_data:
+                item["target"] = item["target"][:, :-val_window]
+
+            # Collect grouped data
+            all_training_data.append(training_data[0])
+            all_test_data.append(test_data[0])
+            all_validation_data.append(validation_data[0])
+
+        return [all_training_data, all_test_data, all_validation_data]
+
 

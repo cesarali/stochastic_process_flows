@@ -1,6 +1,4 @@
 import pytest
-
-
 from spflows.configs_classes.gecko_configs import GeckoModelConfig
 from spflows.data.datamodules import GeckoDatamodule
 from spflows.data.gecko.gecko_datasets import CoinGeckoDataset
@@ -41,5 +39,17 @@ def test_gecko_dataloader():
     databatch = datamodule.get_train_databatch()
     print(databatch.keys())
 
+def test_forward():
+    from spflows.models.forecasting.score_lightning import ScoreModule
+    config = GeckoModelConfig()
+    config,all_datasets = GeckoDatamodule.get_data_and_update_config(config)
+    datamodule = GeckoDatamodule(config,all_datasets)
+    datamodule.setup()
+    databatch = datamodule.get_train_databatch()
+    module = ScoreModule(config)
+    inputs = list(databatch.values())
+    loss = module.train_dynamical_module(*inputs)
+    print(loss)
+
 if __name__ == "__main__":
-    test_gecko_dataloader()
+    test_forward()
