@@ -5,7 +5,6 @@ import torch
 import inspect
 from torch import nn
 from torch.optim import Adam
-from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import OneCycleLR
 
 from gluonts.model.predictor import Predictor
@@ -48,7 +47,6 @@ class ScoreModule(pl.LightningModule):
     ):
         super(ScoreModule,self).__init__()
         self.save_hyperparameters()
-        
         self.config = config  # Store the config for potential future reference
         self.epochs = config.epochs
         self.network = config.network
@@ -92,7 +90,7 @@ class ScoreModule(pl.LightningModule):
         elif network == 'timegrad_cnn':
             train_dynamic_class, prediction_dynamic_class = TimeGradTrainingNetwork_CNN, TimeGradPredictionNetwork_CNN
         return train_dynamic_class,prediction_dynamic_class
-    
+
     @staticmethod
     def get_networks_inputs(config:ForecastingModelConfig)->Tuple[List[str],List[str]]:
         """checks the signature of the forward pass of the dynamic modules to see what is expected"""
@@ -108,7 +106,7 @@ class ScoreModule(pl.LightningModule):
         return training_input_names, prediction_input_names
 
     def create_training_network(self):
-        """initilizes the dynamical model"""          
+        """initilizes the dynamical model"""
         return self.train_dynamic_class(
             noise=self.config.noise,
             input_size=self.config.input_size,

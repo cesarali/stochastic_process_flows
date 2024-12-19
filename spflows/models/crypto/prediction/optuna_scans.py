@@ -3,7 +3,7 @@ from pathlib import Path
 
 from spflows.forecasting.models.crypto.prediction.prediction_experiment import SummaryPredictionExperiment
 
-from spflows.data.crypto.coingecko.dataloaders import (
+from spflows.data.gecko.coingecko.dataloaders import (
     TimeSeriesTorchForTraining
 )
 

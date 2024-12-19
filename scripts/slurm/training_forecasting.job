@@ -1,0 +1,11 @@
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=n
+#SBATCH --mem-per-cpu=2000M
+#SBATCH --mem-per-gpu=50G
+#SBATCH --gpus=1
+#SBATCH --gpus=tesla_v100:1
+
+
+
+srun /home/ojedamarin/.conda/envs/torchts/bin/python train_forecasting.py --epochs 100 

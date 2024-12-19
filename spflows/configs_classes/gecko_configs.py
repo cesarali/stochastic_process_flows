@@ -3,14 +3,14 @@ from typing import List, Optional, Any
 import yaml
 
 @dataclass
-class ForecastingModelConfig:
+class GeckoModelConfig:
     experiment_dir:str = None
-    experiment_name:str = "forecasting"
+    experiment_name:str = "coins"
     experiment_indentifier:Optional[str] = None
     results_path:Optional[str] = None
 
     # Data configuration
-    dataset_str_name: str = "electricity_nips"
+    date_str: str = "2024-12-18"
     freq: str = "H"
 
     # Data Shapes
@@ -71,7 +71,7 @@ class ForecastingModelConfig:
     extra_args: dict = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, yaml_path: str) -> 'ForecastingModelConfig':
+    def from_yaml(cls, yaml_path: str) -> 'GeckoModelConfig':
         with open(yaml_path, 'r') as file:
             params_dict = yaml.safe_load(file)
         return cls(**params_dict)

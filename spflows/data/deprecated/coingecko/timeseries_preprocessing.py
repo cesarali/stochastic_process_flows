@@ -5,9 +5,9 @@ from tqdm import tqdm
 from datetime import datetime,timedelta
 from dataclasses import dataclass
 import math 
-from spflows.data.crypto.coingecko.dataloaders import TimeSeriesTorchForTraining
+from spflows.data.gecko.coingecko.dataloaders import TimeSeriesTorchForTraining
 
-from spflows.data.crypto.coingecko.coingecko_dataclasses import (
+from spflows.data.gecko.coingecko.coingecko_dataclasses import (
     AllCoinsMetadata,
     CoinMetadata
 )
@@ -17,11 +17,11 @@ from typing import Dict,Tuple
 
 from torch.nn.utils.rnn import pad_sequence
 
-from spflows.data.crypto.coingecko.downloads import get_coins_to_download
+from spflows.data.gecko.coingecko.downloads import get_coins_to_download
 
 from pandas import Timestamp
 
-from spflows.data.crypto.coingecko.timeseries_utils import geometric_brownian_motion_ml_estimate
+from spflows.data.gecko.coingecko.timeseries_utils import geometric_brownian_motion_ml_estimate
 
 from dataclasses import asdict
 
@@ -320,7 +320,7 @@ def valid_values_for_dataframe(values):
     if isinstance(values,PredictionSummary):
         return False
     return True
-    
+
 def get_all_timeseries_dataframe(data_dict=Dict[str,CoinTimeseriesMetadata]) -> pd.DataFrame:
     """
     we create a data frame with the statistics of all the time series metadata

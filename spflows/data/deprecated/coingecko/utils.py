@@ -45,7 +45,3 @@ def parse_raw_prices_to_dataframe(data)->pd.DataFrame:
     # Combine all DataFrames into a single DataFrame, aligning by index (timestamp)
     final_df = pd.concat(dfs, axis=1)
     return final_df
-
-
-
-        

@@ -4,7 +4,7 @@ import pickle
 from datetime import datetime
 from spflows import data_path
 
-from spflows.data.crypto.coingecko.downloads_utils import (
+from spflows.data.gecko.coingecko.downloads_utils import (
     get_request,
     filter_coin_id_and_contract
 )
@@ -17,7 +17,7 @@ def get_all_coins_and_contracts_data(date_string,key):
 
     if not os.path.exists(coins_pathdir):
         os.makedirs(coins_pathdir)
-        
+
     url = "https://api.coingecko.com/api/v3/coins/list?include_platform=true"
     if not os.path.exists(filename):
         data = get_request(url,key)
@@ -29,7 +29,7 @@ def get_all_coins_and_contracts_data(date_string,key):
     else:
         data = pickle.load(open(filename,"rb"))
         return data
-    
+
 def get_all_coins_and_markets(date_string,key=None,number_of_pages=3,tor=False):
     if date_string is None:
         date_string = str(datetime.now().date())
@@ -110,7 +110,7 @@ def get_coins_to_download(date_string=None,
     else:
         ids_to_download = pickle.load(open(filename,"rb"))
     return ids_to_download
-    
+
 def get_one_coin_metadata(id="archangel-token",key=None):
     # URL of the CoinGecko API for the Archangel Token contract details
     url = f"https://api.coingecko.com/api/v3/coins/{id}?tickers=true&market_data=true&community_data=true&sparkline=true"
@@ -127,7 +127,7 @@ def get_coin_timeseries_raw(coin_id,key=None,number_of_days=90,tor=False):
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={number_of_days}"
     data = get_request(url,key)
     return data
-    
+
 if __name__=="__main__":
     date_string = None
     coingecko_key = "CG-rkg4RTUcfEWYAQ4xUejxPpkS"

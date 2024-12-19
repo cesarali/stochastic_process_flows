@@ -13,7 +13,7 @@ if not os.path.isdir(crypto_plots_dir):
     os.makedirs(crypto_plots_dir)
 
 from spflows import data_path
-from spflows.data.crypto.create_dataset_files import create_merged_dataframe
+from spflows.data.gecko.create_dataset_files import create_merged_dataframe
 
 def coins_in_a_window(date0,datef,collection,survival=True):
     if not survival:

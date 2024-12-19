@@ -37,6 +37,13 @@ from pts.dataset.loader import TransformedIterableDataset
 from gluonts.dataset.common import  Dataset as GluonDataset
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 from spflows.models.forecasting.score_lightning import ScoreModule
+from spflows.data.gecko.gecko_datasets import CoinGeckoDataset
+from spflows.configs_classes.gecko_configs import GeckoModelConfig
+from spflows.data.gecko.gecko_metadata import CoinMetadata,AllCoinsMetadata
+from spflows.data.gecko.gecko_utils import get_dataframe_with_freq_bitcoin,get_dataframe_with_freq_from_bitcoin
+from spflows.data.gecko.gecko_requests import (
+    get_key
+)
 
 class ForecastingDataModule(pl.LightningDataModule):
     """Datamodule to train an stochastic process diffusion module"""
@@ -95,7 +102,7 @@ class ForecastingDataModule(pl.LightningDataModule):
         # Assuming all_datasets is computed elsewhere
         all_datasets = ForecastingDataModule.grouper_datasets(dataset, config)
         return config, all_datasets
-    
+
     @staticmethod
     def grouper_datasets(dataset:TrainDatasets,config:ForecastingModelConfig)->List[GluonDataset]:
         """Download and validate data."""
@@ -153,7 +160,7 @@ class ForecastingDataModule(pl.LightningDataModule):
             min_past=0 if self.config.pick_incomplete else self.history_length,
             min_future=self.prediction_length,
         )
-    
+
     def setup_transformations(self) -> Transformation:
         self.transformations =  Chain(
             [
@@ -222,7 +229,7 @@ class ForecastingDataModule(pl.LightningDataModule):
                 is_train=True,
                 cache_data=self.config.cache_data,
             )
-        
+
     def create_instance_splitter(self, mode: str):
         assert mode in ["training", "validation", "test"]
 
@@ -252,7 +259,7 @@ class ForecastingDataModule(pl.LightningDataModule):
                 }
             )
         )
-    
+
     @staticmethod
     def _worker_init_fn(worker_id):
         np.random.seed(np.random.get_state()[1][0] + worker_id)
@@ -283,10 +290,10 @@ class ForecastingDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         pass
-    
+
     def get_train_databatch(self):
         return next(self.train_dataloader().__iter__())
-    
+
     def send_tensors_to_device(self,databatch, device):
         """
         Sends all tensor values in a dictionary or named tuple to the specified device.
@@ -304,4 +311,96 @@ class ForecastingDataModule(pl.LightningDataModule):
             return type(databatch)(*(value.to(device) if hasattr(value, 'to') else value for value in databatch))
         else:
             raise TypeError("Input data must be a dictionary or namedtuple.")
+
+class GeckoDatamodule(pl.LightningDataModule):
+    """Datamodule to train an stochastic process diffusion module"""
+    #training_iter_dataset:TransformedIterableDataset
+    #validation_iter_dataset:TransformedIterableDataset
+    #training_data:GluonDataset
+    #test_data:GluonDataset
+    #validation_data:GluonDataset
+    def __init__(
+            self,
+            config:GeckoModelConfig,
+            all_datasets:List[Any] = None,
+        ):
+        super(GeckoDatamodule,self).__init__()
+        self.config = config
+
+        if all_datasets is None:
+            config, all_datasets = GeckoDatamodule.get_data_and_update_config(config)
+
+        self.training_data = all_datasets[0]
+        self.test_data = all_datasets[1]
+        self.validation_data = all_datasets[2]
+
+    @staticmethod
+    def get_coingecko_datasets(config:GeckoModelConfig,regenerate=False)->CoinGeckoDataset:
+        coingecko_key = get_key()
+        all_coins_metadata = AllCoinsMetadata(date_string=config.date_str,
+                                              coingecko_key=coingecko_key)
+        all_coins_metadata.load_existing_timeseries()
+        df = all_coins_metadata.df_time_series["solana"]
+        df_bitcoin = all_coins_metadata.df_time_series["bitcoin"]
+        df_bitcoin_freq = get_dataframe_with_freq_bitcoin(df_bitcoin)
+        df_freq = get_dataframe_with_freq_from_bitcoin(df,df_bitcoin_freq)
+        dataset = CoinGeckoDataset(coin_id="solana",df_freq=df_freq,df_bitcoin_freq=df_bitcoin_freq)
+        return dataset
+
+    @staticmethod
+    def get_data_and_update_config(config: GeckoModelConfig)->Tuple[GeckoModelConfig,List[GluonDataset]]:
+        """
+        this is all the config information that is obtained from
+        the data metadata as well as the config, that is requiered by the
+        model initialization, but should be called independently of the "setup"
+        and "prepare_data" functions which are handled by lightning datamodules
+        inside trainer calls
+        """
+        dataset = GeckoDatamodule.get_coingecko_datasets(config, regenerate=False)
+
+        config.covariance_dim = 4 if config.date_str != 'exchange_rate_nips' else -4
+        config.prediction_length = dataset.metadata.prediction_length
+        config.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
+        config.input_size = config.target_dim * 4 + config.covariance_dim
+        config.context_length = config.context_length if config.context_length is not None else config.prediction_length
+        config.freq=dataset.metadata.freq
+
+        config.lags_seq = (
+            config.lags_seq
+            if config.lags_seq is not None
+            else lags_for_fourier_time_features_from_frequency(freq_str=config.freq)
+        )
+        config.time_features = (
+            config.time_features
+            if config.time_features is not None
+            else fourier_time_features_from_frequency(config.freq)
+        )
+
+        # If context is not provided in the config, the prediction length is used as context
+        config.history_length = config.context_length + max(config.lags_seq)
+
+        # Assuming all_datasets is computed elsewhere
+        all_datasets = GeckoDatamodule.grouper_all_datasets(dataset, config)
+        return config, all_datasets
+
+    @staticmethod
+    def grouper_all_datasets(dataset:TrainDatasets,config:ForecastingModelConfig)->List[GluonDataset]:
+        """Download and validate data."""
+        # Set the grouped data attributes for later use
+        train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
+        test_grouper = MultivariateGrouper(
+            num_test_dates=int(len(dataset.test) / len(dataset.train)),
+            max_target_dim=min(2000, config.target_dim),
+        )
+        training_data = train_grouper(dataset.train)
+        test_data = test_grouper(dataset.test)
+
+        # Prepare validation data
+        val_window = 20 * dataset.metadata.prediction_length
+        validation_data = [
+            {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in training_data
+        ]
+        for item in training_data:
+            item["target"] = item["target"][:, :-val_window]
+        return [training_data,test_data,validation_data]
 

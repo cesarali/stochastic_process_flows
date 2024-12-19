@@ -8,7 +8,7 @@ from pts.model import weighted_average
 from pts.modules import MeanScaler
 
 from spflows.models.diffusion import OUDiffusion, BetaLinear
-from spflows.models.forecasting.models.time_grad_network import DenoisingModelTG
+from spflows.models.forecasting.time_grad_network import DenoisingModelTG
 
 class ScoreTrainingNetwork(nn.Module):
     """

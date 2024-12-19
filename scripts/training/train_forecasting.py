@@ -1,5 +1,5 @@
 import argparse
-from spflows.training.basic_experiments import BasicLightningExperiment
+from spflows.training.forecasting_experiments import ForecastingLightningExperiment
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 
 def train(args):
@@ -16,9 +16,9 @@ def train(args):
         num_cells=args.num_cells,
         hidden_dim=args.hidden_dim,
         residual_layers=args.residual_layers,
-        num_batches_per_epoch=2,
+        num_batches_per_epoch=args.num_batches_per_epoch,
     )
-    trainer = BasicLightningExperiment(config)
+    trainer = ForecastingLightningExperiment(config)
     trainer.train()
 
 if __name__=="__main__":
@@ -32,10 +32,11 @@ if __name__=="__main__":
     parser.add_argument('--noise', type=str, choices=['normal', 'ou', 'gp'], default="gp")
     parser.add_argument('--diffusion_steps', type=int, default=9)
     parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--num_batches_per_epoch', type=int, default=2)
     parser.add_argument('--learning_rate', type=int, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--num_cells', type=int, default=100)
-    parser.add_argument('--hidden_dim', type=int, default=100)
-    parser.add_argument('--residual_layers', type=int, default=8)
+    parser.add_argument('--num_cells', type=int, default=10)
+    parser.add_argument('--hidden_dim', type=int, default=10)
+    parser.add_argument('--residual_layers', type=int, default=2)
     args = parser.parse_args()
     train(args)

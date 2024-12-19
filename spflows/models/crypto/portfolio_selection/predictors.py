@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import torchcde
 from datetime import datetime
-from spflows.data.crypto.dataloaders import CryptoDataLoader, ADataLoader
+from spflows.data.gecko.dataloaders import CryptoDataLoader, ADataLoader
 from spflows.forecasting.models.sdes.neural_sde import Generator, Discriminator
 from spflows.forecasting.models.sdes.neural_sde import gradient_penalty
 from spflows.forecasting.models.utils.utils_ts import unfold_steps_ahead

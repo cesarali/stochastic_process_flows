@@ -9,22 +9,22 @@ from spflows import data_path
 from typing import List
 from dataclasses import dataclass, fields
 from tqdm import tqdm
-from spflows.data.crypto.coingecko.downloads_utils import RateLimitedRequester
+from spflows.data.gecko.coingecko.downloads_utils import RateLimitedRequester
 
-from spflows.data.crypto.coingecko.downloads import (
+from spflows.data.gecko.coingecko.downloads import (
     get_coins_to_download,
     get_one_coin_metadata,
     get_all_coins_and_contracts_data,
     get_coin_timeseries_raw
 )
 
-from spflows.data.crypto.coingecko.utils import parse_raw_prices_to_dataframe
+from spflows.data.gecko.coingecko.utils import parse_raw_prices_to_dataframe
 
 @dataclass
 class PriceChangeData:
     """
-    After proprocessing stores values from:
-    
+    After preprocessing stores values from:
+
     """
     id:Optional[str] = None
     contract:Optional[str] = None
@@ -60,7 +60,7 @@ class PriceChangeData:
 @dataclass
 class CoinMetadata:
     """
-    After proprocessing stores values from:
+    After preprocessing stores values from:
 
     """
     id:Optional[str] = None
@@ -121,7 +121,7 @@ def filter_dict_for_dataclass(input_dict, dataclass_type,currency="usd"):
                 if currency in v.keys():
                     filtered_dict[k] = v[currency] 
     return filtered_dict
-           
+
 def prepare_dict_for_dataclass(data:dict,dataclass_type:PriceChangeData,currency="usd")->dict:
     """
     here data comes from the gecko api, the idea is to prepare the dict such that
@@ -142,7 +142,7 @@ def prepare_dict_for_dataclass(data:dict,dataclass_type:PriceChangeData,currency
 @dataclass
 class AllCoinsMetadata:
     """
-    And object that handles the download of coins and stores different list according to whether they were already downloaded 
+    An object that handles the download of coins and stores different list according to whether they were already downloaded
     or if they are in fact uniswap or not.
 
     It also holds all the paths for the coins metadata, timeseries, torch.
@@ -177,6 +177,7 @@ class AllCoinsMetadata:
     num_uniswap_ids_ready:int = 0
     num_not_uniswap_ids:int = 0
     redo_names:bool = False # THIS IS FOR THE DEPRECATED PRICECHANGE OBJECTS
+
     def __post_init__(self):
         """
         We create all the dirs and files paths for the coins
@@ -267,7 +268,6 @@ class AllCoinsMetadata:
         """
         obtains coins id and contracts, download general data (market volume)
         checks if is uniswap and stores if so in a list of data classes dataclass called CoinMetadata
-
         """
         if coins_to_download is None:
             coins_to_download = get_coins_to_download(from_sorted=from_sorted)
@@ -375,7 +375,7 @@ if __name__=="__main__":
                                            redo=False)
     all_coins_metadata = AllCoinsMetadata(date_string=date_string,
                                           coingecko_key=coingecko_key)
-    
+
     some_coins_to_download = selected_coins[:number_of_coins_to_download]
     all_coins_metadata.download_coins_metadata(coins_to_download=some_coins_to_download)
     all_coins_metadata.download_df_timeseries()
