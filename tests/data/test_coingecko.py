@@ -7,6 +7,7 @@ from spflows.data.gecko.gecko_utils import get_dataframe_with_freq_bitcoin,get_d
 from spflows.data.gecko.gecko_requests import (
     get_key
 )
+from spflows.training.gecko_experiments import GeckoLightningExperiment
 
 def test_allcoins_load():
     coingecko_key = get_key()
@@ -56,5 +57,16 @@ def test_forward():
     loss = module.train_dynamical_module(*inputs)
     print(loss)
 
+def test_load_experiment():
+    import torch
+    experiment_dir = r"C:\Users\cesar\Desktop\Projects\BirthDeathPortfolio\stochastic_process_flows\results\1734628682"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    experiment = GeckoLightningExperiment(experiment_dir=experiment_dir,map_location=device)
+    databatch = experiment.datamodule.get_train_databatch()
+    databatch = experiment.datamodule.send_tensors_to_device(databatch,device)
+    inputs = list(databatch.values())
+    loss = experiment.model.train_dynamical_module(*inputs)
+    print(loss)
+
 if __name__ == "__main__":
-    test_frequency_alignement()
+    test_load_experiment()

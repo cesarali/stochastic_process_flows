@@ -76,12 +76,11 @@ class ExperimentsFiles:
 
         if len(all_checkpoints) == 0:
             raise Exception("No Model Found!")
-        
+
         for checkpoint_name in all_checkpoints:
             checkpoint_path = checkpoints_path / checkpoint_name
             if checkpoint_type in checkpoint_name:
-                return checkpoint_path
- 
+                return checkpoint_path 
         print("CHECKPOINT TYPE {0} NOT FOUND, RETURNING".format(checkpoint_type))
         print(all_checkpoints[0])
         return checkpoint_path / all_checkpoints[0]

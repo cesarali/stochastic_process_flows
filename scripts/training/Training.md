@@ -40,5 +40,5 @@
 7. **Call the trainer:**
    Navigate to the location `scripts\training` and run:
    ```bash
-   srun /home/ojedamarin/.conda/envs/torchts/bin/python train_gecko.py --epochs 10 --num_batches_per_epoch 50 --residual_layers 8
+   /home/ojedamarin/.conda/envs/torchts/bin/python train_gecko.py --epochs 10 --num_batches_per_epoch 50 --residual_layers 8
    ```

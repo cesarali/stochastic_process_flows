@@ -49,7 +49,7 @@ class GeckoModelConfig:
     beta_end: float = 0.1
     beta_schedule: str = "linear"
     loss_type: str = "l2"
-    num_samples:int = 100
+    num_samples:int = 10
 
     # Model architecture
     network: str = "timegrad_rnn"

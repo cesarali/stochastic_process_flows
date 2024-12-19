@@ -1,4 +1,6 @@
 from torch.utils.data import DataLoader
+from typing import Dict
+from random import choice
 from tqdm import tqdm
 from copy import deepcopy
 import lightning.pytorch as pl
@@ -295,7 +297,7 @@ class ForecastingDataModule(pl.LightningDataModule):
     def get_train_databatch(self):
         return next(self.train_dataloader().__iter__())
 
-    def send_tensors_to_device(self,databatch, device):
+    def send_tensors_to_device(self,databatch, device)->Dict:
         """
         Sends all tensor values in a dictionary or named tuple to the specified device.
 
@@ -403,21 +405,13 @@ class GeckoDatamodule(ForecastingDataModule):
             A list containing grouped training, test, and validation datasets for all input datasets.
         """
         all_training_data = []
-        all_test_data = []
         all_validation_data = []
 
         for dataset in datasets:
             # Initialize groupers for each dataset
             train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
-            test_grouper = MultivariateGrouper(
-                num_test_dates=int(len(dataset.test) / len(dataset.train)),
-                max_target_dim=min(2000, config.target_dim),
-            )
-
             # Apply the groupers
             training_data = train_grouper(dataset.train)
-            test_data = test_grouper(dataset.test)
-
             # Prepare validation data
             val_window = 20 * dataset.metadata.prediction_length
             validation_data = [
@@ -425,12 +419,19 @@ class GeckoDatamodule(ForecastingDataModule):
             ]
             for item in training_data:
                 item["target"] = item["target"][:, :-val_window]
-
             # Collect grouped data
             all_training_data.append(training_data[0])
-            all_test_data.append(test_data[0])
             all_validation_data.append(validation_data[0])
 
-        return [all_training_data, all_test_data, all_validation_data]
+        # for test
+        dataset = choice(datasets)
+        # Initialize groupers for each dataset
+        test_grouper = MultivariateGrouper(
+            num_test_dates=int(len(dataset.test) / len(dataset.train)),
+            max_target_dim=min(2000, config.target_dim),
+        )
+        # Apply the groupers
+        test_data = test_grouper(dataset.test)
+        return [all_training_data, test_data, all_validation_data]
 
 

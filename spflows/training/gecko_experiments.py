@@ -51,12 +51,12 @@ class GeckoLightningExperiment(BasicLightningExperiment):
             self.setup_model()
 
     def setup_experiment_from_dir(self,experiment_dir):
-        """"""
-        self.experiment_files = ExperimentsFiles(experiment_dir=experiment_dir,results_path=self.config.results_path)
+        self.experiment_files = ExperimentsFiles(experiment_dir=experiment_dir)
         self.config = GeckoModelConfig.from_yaml(self.experiment_files.params_yaml)
         checkpoint_path = self.experiment_files.get_lightning_checkpoint_path("best")
         self.config, all_datasets = GeckoDatamodule.get_data_and_update_config(self.config)
         self.datamodule = GeckoDatamodule(self.config,all_datasets)
+        self.datamodule.setup()
         self.model = ScoreModule.load_from_checkpoint(checkpoint_path, config=self.config, map_location=self.map_location)
 
     def setup_datamodule(self):
