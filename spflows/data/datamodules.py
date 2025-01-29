@@ -41,12 +41,15 @@ from gluonts.dataset.common import  Dataset as GluonDataset
 from spflows.configs_classes.forecasting_configs import ForecastingModelConfig
 from spflows.models.forecasting.score_lightning import ScoreModule
 from spflows.data.gecko.gecko_datasets import CoinGeckoDataset
+from spflows.data.processes.processes_dataset import ProcessesDataset
 from spflows.configs_classes.gecko_configs import GeckoModelConfig
+from spflows.configs_classes.processes_configs import ProcessesConfig
 from spflows.data.gecko.gecko_metadata import AllCoinsMetadata
 from spflows.data.gecko.gecko_utils import get_dataframe_with_freq_bitcoin,get_dataframe_with_freq_from_bitcoin
 from spflows.data.gecko.gecko_requests import (
     get_key
 )
+from spflows.data.processes.processes_utils import get_data_paths
 
 class ForecastingDataModule(pl.LightningDataModule):
     """Datamodule to train an stochastic process diffusion module"""
@@ -433,5 +436,113 @@ class GeckoDatamodule(ForecastingDataModule):
         # Apply the groupers
         test_data = test_grouper(dataset.test)
         return [all_training_data, test_data, all_validation_data]
+
+class ProcessesDatamodule(ForecastingDataModule):
+    """Datamodule to train an stochastic process diffusion module"""
+    #training_iter_dataset:TransformedIterableDataset
+    #validation_iter_dataset:TransformedIterableDataset
+    #training_data:GluonDataset
+    #test_data:GluonDataset
+    #validation_data:GluonDataset
+    def __init__(
+            self,
+            config:ProcessesConfig,
+            all_datasets:List[Any] = None,
+        ):
+        super(ProcessesDatamodule,self).__init__(config,all_datasets)
+
+    @staticmethod
+    def get_processes_datasets(config:ProcessesConfig)->List[ProcessesDataset]:
+        all_paths_tensor = get_data_paths(config.process_data_file,config.dataset_str_name,config.tau,config.num_divisions)
+        all_datasets = []
+        for path_index,path in enumerate(all_paths_tensor):
+            dataset = ProcessesDataset(path_tensor=path)
+            all_datasets.append(dataset)
+        return all_datasets
+
+    @staticmethod
+    def get_data_and_update_config(config: ProcessesConfig)->Tuple[ProcessesConfig,List[GluonDataset]]:
+        """
+        this is all the config information that is obtained from
+        the data metadata as well as the config, that is requiered by the
+        model initialization, but should be called independently of the "setup"
+        and "prepare_data" functions which are handled by lightning datamodules
+        inside trainer calls
+        """
+        datasets = ProcessesDatamodule.get_processes_datasets(config)
+        dataset = datasets[0]
+        config.covariance_dim = 4
+        config.prediction_length = dataset.metadata.prediction_length
+        config.target_dim = int(dataset.metadata.feat_static_cat[0].cardinality)
+        config.input_size = config.target_dim * 4 + config.covariance_dim
+        config.context_length = config.context_length if config.context_length is not None else config.prediction_length
+        config.freq=dataset.metadata.freq
+
+        config.lags_seq = (
+            config.lags_seq
+            if config.lags_seq is not None
+            else lags_for_fourier_time_features_from_frequency(freq_str=config.freq)
+        )
+        config.time_features = (
+            config.time_features
+            if config.time_features is not None
+            else fourier_time_features_from_frequency(config.freq)
+        )
+
+        # If context is not provided in the config, the prediction length is used as context
+        config.history_length = config.context_length + max(config.lags_seq)
+
+        # Assuming all_datasets is computed elsewhere
+        all_datasets = ProcessesDatamodule.grouper_all_datasets(datasets, config)
+        return config, all_datasets
+
+    @staticmethod
+    def grouper_all_datasets(datasets: List[TrainDatasets], config: ForecastingModelConfig) -> List[List[GluonDataset]]:
+        """
+        Download and validate data for a list of datasets.
+
+        Args:
+        ----
+        datasets: List[TrainDatasets]
+            A list of datasets containing training and test data.
+        config: ForecastingModelConfig
+            Configuration object with target dimensions and other settings.
+
+        Returns:
+        -------
+        grouped_datasets: List[List[GluonDataset]]
+            A list containing grouped training, test, and validation datasets for all input datasets.
+        """
+        all_training_data = []
+        all_validation_data = []
+
+        for dataset in datasets:
+            # Initialize groupers for each dataset
+            train_grouper = MultivariateGrouper(max_target_dim=min(2000, config.target_dim))
+            # Apply the groupers
+            training_data = train_grouper(dataset.train)
+            # Prepare validation data
+            val_window = dataset.metadata.prediction_length
+            validation_data = [
+                {**deepcopy(item), "target": item["target"][:, -val_window:]} for item in training_data
+            ]
+            for item in training_data:
+                item["target"] = item["target"][:, :-val_window]
+            # Collect grouped data
+            all_training_data.append(training_data[0])
+            all_validation_data.append(validation_data[0])
+
+        # for test
+        dataset = choice(datasets)
+        # Initialize groupers for each dataset
+        test_grouper = MultivariateGrouper(
+            num_test_dates=int(len(dataset.test) / len(dataset.train)),
+            max_target_dim=min(2000, config.target_dim),
+        )
+        # Apply the groupers
+        test_data = test_grouper(dataset.test)
+        return [all_training_data, test_data, all_validation_data]
+
+
 
 

@@ -3,14 +3,18 @@ from typing import List, Optional, Any
 import yaml
 
 @dataclass
-class ForecastingModelConfig:
+class ProcessesConfig:
     experiment_dir:str = None
-    experiment_name:str = "forecasting"
+    experiment_name:str = "processes"
     experiment_indentifier:Optional[str] = None
     results_path:Optional[str] = None
 
     # Data configuration
-    dataset_str_name: str = "electricity_nips"
+    process_data_file : str = r"C:\Users\cesar\Desktop\Projects\FoundationModels\FIM\data\external\coarse_obs_systems_data_5000_points\20250129_systems_coarse_observations.json"
+    tau:float=0.002 # 0.02, 0.01, 0.002
+    num_divisions:int = 25
+    dataset_str_name: str = "Duffing" # Duffing, Hopf, Damped Linear, Syn Drift, Damped Cubic, Glycolysis, Double Well, Wang
+    date_str: str = "2024-12-18"
     freq: str = "H"
 
     # Data Shapes
@@ -23,7 +27,7 @@ class ForecastingModelConfig:
     input_size: int = 1  # updated at datamodule
     target_dim: int = 1  # updated at datamodule
 
-    batch_size: int = 25
+    batch_size: int = 64
     pick_incomplete: bool = True
     scaling: bool = True
     shuffle_buffer_length: Optional[int] = None
@@ -48,7 +52,7 @@ class ForecastingModelConfig:
     beta_end: float = 0.1
     beta_schedule: str = "linear"
     loss_type: str = "l2"
-    num_samples:int = 100
+    num_samples:int = 10
 
     # Model architecture
     network: str = "timegrad_rnn"
@@ -71,7 +75,7 @@ class ForecastingModelConfig:
     extra_args: dict = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, yaml_path: str) -> 'ForecastingModelConfig':
+    def from_yaml(cls, yaml_path: str) -> 'ProcessesConfig':
         with open(yaml_path, 'r') as file:
             params_dict = yaml.safe_load(file)
         return cls(**params_dict)

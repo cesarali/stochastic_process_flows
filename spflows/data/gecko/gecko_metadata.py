@@ -103,7 +103,6 @@ def prepare_dict_for_dataclass(data:dict,dataclass_type:CoinMetadata,currency="u
     data_dict = filter_dict_for_dataclass(data_dict,dataclass_type,currency)
     return data_dict
 
-
 @dataclass
 class AllCoinsMetadata:
     """
@@ -324,11 +323,11 @@ if __name__=="__main__":
     coingecko_key = get_key()
     date_string="2024-12-18"
 
-    number_of_coins_to_download = 3000
+    number_of_coins_to_download = 4000
     selected_coins = get_coins_to_download(date_string=None,
                                            key=coingecko_key,
                                            number_of_coins_to_download=number_of_coins_to_download,
-                                           percentage_on_top=.1,
+                                           percentage_on_top=.25,
                                            number_of_pages=8,
                                            redo=True)
     all_coins_metadata = AllCoinsMetadata(date_string=date_string,

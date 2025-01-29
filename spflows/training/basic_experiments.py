@@ -61,8 +61,7 @@ class BasicLightningExperiment(ABC):
         Sets up the logger for MLFlow.
         """
         ml_flow_folder = os.path.join(results_path, "mlruns")
-        self.logger = MLFlowLogger(experiment_name=self.experiment_name,
-                                   tracking_uri=f"file:{ml_flow_folder}")
+        self.logger = MLFlowLogger(experiment_name=self.experiment_name,tracking_uri=f"file:{ml_flow_folder}")
 
     def setup_callbacks(self):
         """

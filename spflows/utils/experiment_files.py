@@ -12,7 +12,7 @@ def get_git_revisions_hash():
 
 class ExperimentsFiles:
     """
-    Defines experiment folders with sub dirs for 
+    Defines experiment folders with sub dirs for
         -tensorboard dir
         -checkpoint storage
         -sample folders

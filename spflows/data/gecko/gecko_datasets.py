@@ -67,6 +67,7 @@ class CoinGeckoDataset(ArtificialDataset):
             {'target': alt_coin_market_caps, 'start': period, 'feat_static_cat': np.array([0]), 'item_id': 4},
             {'target': alt_coin_total_volumes, 'start': period, 'feat_static_cat': np.array([0]), 'item_id': 5}
         ]
+        print(self.data_list)
 
     @property
     def train(self):

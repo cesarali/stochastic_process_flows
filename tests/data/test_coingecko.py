@@ -69,4 +69,4 @@ def test_load_experiment():
     print(loss)
 
 if __name__ == "__main__":
-    test_load_experiment()
+    test_forward()
